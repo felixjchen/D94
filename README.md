@@ -1,4 +1,4 @@
-# Error-Correcting-Codes-for-Distributed-Caching
+# Error Correcting Codes for Distributed Caching
 
 ## Project Idea
 
