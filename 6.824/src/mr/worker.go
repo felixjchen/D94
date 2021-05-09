@@ -76,9 +76,12 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 			nReduce := task.NReduce
 			intermediate_files := []*os.File{}
 			for i := 0; i < nReduce; i++ {
-				// NEED BETTER TEMP NAMES AT LEAST UNIQUE
-				temp_name := fmt.Sprintf("mr-out-%s-%d-tmp", filename, i)
-				temp_file, _ := os.Create(temp_name)
+				temp_name := fmt.Sprintf("mr-out-%s-%d.temp*", filename, i)
+				temp_file, err := ioutil.TempFile("", temp_name)
+				defer temp_file.Close()
+				if err != nil {
+					log.Fatalf("error creating temp file %s", temp_name)
+				}
 				intermediate_files = append(intermediate_files, temp_file)
 			}
 			// For each KV, append to respective file
@@ -89,8 +92,9 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 			// Atomic Rename
 			for _, file := range intermediate_files {
 				temp_name := file.Name()
-				oname := temp_name[:len(temp_name)-4]
-				os.Rename(temp_name, oname)
+				file_name := filepath.Base(temp_name)
+				file_name = strings.Split(file_name, ".temp")[0]
+				os.Rename(temp_name, file_name)
 			}
 
 			// Complete Task
@@ -121,10 +125,12 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 			}
 			sort.Sort(ByKey(intermediate))
 
-			// NEED BETTER TEMP NAMES AT LEAST UNIQUE
-			temp_name := fmt.Sprintf("mr-out-%s-tmp", task.TaskNumber)
-			temp_file, _ := os.Create(temp_name)
+			temp_name := fmt.Sprintf("mr-out-%s.temp*", task.TaskNumber)
+			temp_file, err := ioutil.TempFile("", temp_name)
 			defer temp_file.Close()
+			if err != nil {
+				log.Fatalf("error creating temp file %s", temp_name)
+			}
 
 			i := 0
 			for i < len(intermediate) {
@@ -144,8 +150,10 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 			}
 			// Output result, "mr-out-X"
 			// Atomic Rename
-			oname := temp_name[:len(temp_name)-4]
-			os.Rename(temp_name, oname)
+			temp_name = temp_file.Name()
+			file_name := filepath.Base(temp_name)
+			file_name = strings.Split(file_name, ".temp")[0]
+			os.Rename(temp_name, file_name)
 
 			// Complete Task
 			complete_task(task)
