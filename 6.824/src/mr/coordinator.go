@@ -12,19 +12,29 @@ import (
 
 type Coordinator struct {
 	// Your definitions here.
-	mu sync.Mutex
-	// m for map, r for reduce
-	state   string
-	mapped  map[string]bool
-	reduced map[string]bool
+	mu      sync.Mutex
+	nReduce int
+
+	map_assigned    map[string]bool
+	reduce_assigned map[string]bool
+
+	map_completed    map[string]bool
+	reduce_completed map[string]bool
 }
 
 const (
-	OK              = "OK"
-	ErrUnknownState = "ErrUnknownState"
+	OK                 = "OK"
+	ErrUnknownTaskType = "ErrUnknownTaskType"
 )
 
 // Your code here -- RPC handlers for the worker to call.
+func isMapTrue(m map[string]bool) bool {
+	mapTrue := true
+	for _, v := range m {
+		mapTrue = mapTrue && v
+	}
+	return mapTrue
+}
 
 //
 // an example RPC handler.
@@ -36,50 +46,81 @@ func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
 	return nil
 }
 
+func (c *Coordinator) CompleteTask(args *CompleteTaskArgs, reply *CompleteTaskReply) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	task_type := args.TaskType
+	task_number := args.TaskNumber
+
+	if task_type == "m" {
+		c.map_completed[task_number] = true
+		reply.Err = OK
+		return nil
+	} else if task_type == "r" {
+		c.reduce_completed[task_number] = true
+		reply.Err = OK
+		return nil
+	} else {
+		reply.Err = ErrUnknownTaskType
+		return nil
+	}
+}
+
 func (c *Coordinator) GetTask(args *GetTaskArgs, reply *GetTaskReply) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	// Delegate work
-	if c.state == "m" {
-		// Give first available map task
-		for f, assigned := range c.mapped {
-			if !assigned {
-				reply.Err = OK
-				reply.TaskType = "m"
-				reply.TaskNumber = f
-				return nil
-			}
+	// Give first available map task
+	for f, assigned := range c.map_assigned {
+		if !assigned {
+			c.map_assigned[f] = true
+			reply.Err = OK
+			reply.TaskType = "m"
+			reply.TaskNumber = f
+			reply.NReduce = c.nReduce
+			return nil
 		}
+	}
 
-		// No more map tasks, worker must wait for reduce phase
+	// No more map tasks, worker must wait for reduce phase
+	mapDone := isMapTrue(c.map_completed)
+	if !mapDone {
 		reply.Err = OK
 		reply.TaskType = "w"
 		reply.TaskNumber = ""
+		reply.NReduce = c.nReduce
 		return nil
+	}
 
-	} else if c.state == "r" {
-		// Give first available reduce task
-		for i, assigned := range c.reduced {
-			if !assigned {
-				reply.Err = OK
-				reply.TaskType = "r"
-				reply.TaskNumber = i
-				return nil
-			}
+	// Give first available reduce task
+	for i, assigned := range c.reduce_assigned {
+		if !assigned {
+			c.reduce_assigned[i] = true
+			reply.Err = OK
+			reply.TaskType = "r"
+			reply.TaskNumber = i
+			reply.NReduce = c.nReduce
+			return nil
 		}
+	}
 
+	reduceDone := isMapTrue(c.reduce_completed)
+	if !reduceDone {
 		//  No more reduce tasks, worker must wait for completion phase
 		reply.Err = OK
 		reply.TaskType = "w"
 		reply.TaskNumber = ""
+		reply.NReduce = c.nReduce
 		return nil
 	}
 
-	// ??
-	reply.Err = ErrUnknownState
-	reply.TaskType = c.state
+	// Done
+	reply.Err = OK
+	reply.TaskType = "DONE"
 	reply.TaskNumber = ""
+	reply.NReduce = c.nReduce
 	return nil
 }
 
@@ -111,15 +152,8 @@ func (c *Coordinator) Done() bool {
 	defer c.mu.Unlock()
 
 	// Is all map and reduce done ?
-	mapDone := true
-	for _, v := range c.mapped {
-		mapDone = mapDone && v
-	}
-
-	reduceDone := true
-	for _, v := range c.reduced {
-		reduceDone = reduceDone && v
-	}
+	mapDone := isMapTrue(c.map_completed)
+	reduceDone := isMapTrue(c.reduce_completed)
 
 	// fmt.Println("mapDone", mapDone, "reduceDone", reduceDone)
 	ret = reduceDone && mapDone
@@ -139,14 +173,21 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	// INIT
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.state = "m"
-	c.mapped = make(map[string]bool)
-	c.reduced = make(map[string]bool)
+
+	c.nReduce = nReduce
+
+	c.map_assigned = make(map[string]bool)
+	c.reduce_assigned = make(map[string]bool)
+	c.map_completed = make(map[string]bool)
+	c.reduce_completed = make(map[string]bool)
 	for _, f := range files {
-		c.mapped[f] = false
+		c.map_assigned[f] = false
+		c.map_completed[f] = false
 	}
 	for i := 0; i < nReduce; i++ {
-		c.reduced[strconv.Itoa(i)] = false
+		j := strconv.Itoa(i)
+		c.reduce_assigned[j] = false
+		c.reduce_completed[j] = false
 	}
 
 	c.server()

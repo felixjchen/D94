@@ -34,6 +34,16 @@ type GetTaskReply struct {
 	Err        Err
 	TaskType   string
 	TaskNumber string
+	NReduce    int
+}
+
+type CompleteTaskArgs struct {
+	TaskType   string
+	TaskNumber string
+}
+
+type CompleteTaskReply struct {
+	Err Err
 }
 
 // Cook up a unique-ish UNIX-domain socket name
