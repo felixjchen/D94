@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 )
 
 type Coordinator struct {
@@ -34,6 +35,30 @@ func isMapTrue(m map[string]bool) bool {
 		mapTrue = mapTrue && v
 	}
 	return mapTrue
+}
+
+func watchMapTask(c *Coordinator, task_number string) {
+	time.Sleep(10 * time.Second)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// If not commplete, this needs to be reassigned
+	if !c.map_completed[task_number] {
+		c.map_assigned[task_number] = false
+	}
+}
+
+func watchReduceTask(c *Coordinator, task_number string) {
+	time.Sleep(10 * time.Second)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// If not commplete, this needs to be reassigned
+	if !c.reduce_completed[task_number] {
+		c.reduce_assigned[task_number] = false
+	}
 }
 
 func (c *Coordinator) CompleteTask(args *CompleteTaskArgs, reply *CompleteTaskReply) error {
@@ -63,13 +88,14 @@ func (c *Coordinator) GetTask(args *GetTaskArgs, reply *GetTaskReply) error {
 
 	// Delegate work
 	// Give first available map task
-	for f, assigned := range c.map_assigned {
+	for i, assigned := range c.map_assigned {
 		if !assigned {
-			c.map_assigned[f] = true
+			c.map_assigned[i] = true
 			reply.Err = OK
 			reply.TaskType = "m"
-			reply.TaskNumber = f
+			reply.TaskNumber = i
 			reply.NReduce = c.nReduce
+			go watchMapTask(c, i)
 			return nil
 		}
 	}
@@ -92,6 +118,7 @@ func (c *Coordinator) GetTask(args *GetTaskArgs, reply *GetTaskReply) error {
 			reply.TaskType = "r"
 			reply.TaskNumber = i
 			reply.NReduce = c.nReduce
+			go watchReduceTask(c, i)
 			return nil
 		}
 	}

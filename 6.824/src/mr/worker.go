@@ -58,21 +58,18 @@ func get_content(filename string) string {
 func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string) string) {
 
 	// Your worker implementation here.
-	fmt.Println("Worker started!")
-
-	// uncomment to send the Example RPC to the coordinator.
-	// CallExample()
+	// fmt.Println("Worker started!")
 
 	task := get_task()
 	for task.TaskType == "m" || task.TaskType == "r" || task.TaskType == "w" {
-		fmt.Println(task)
+		// fmt.Println(task)
 		if task.TaskType == "m" {
 			// Compute map
 			ifile := task.TaskNumber
 			content := get_content(ifile)
 			kva := mapf(ifile, string(content))
 
-			// Output result, nReduce buckets, "mr-out-X-Y"
+			// Output result, nReduce buckets, "map-out-X-Y"
 			nReduce := task.NReduce
 			intermediate_files := []*os.File{}
 			for i := 0; i < nReduce; i++ {
@@ -170,7 +167,6 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 	}
 
 	// Done all
-
 }
 
 func get_task() GetTaskReply {
@@ -180,7 +176,6 @@ func get_task() GetTaskReply {
 	call_result := call("Coordinator.GetTask", &args, &reply)
 
 	if !call_result {
-		time.Sleep(5 * time.Second)
 		os.Exit(1)
 	}
 	return reply
@@ -195,7 +190,6 @@ func complete_task(task GetTaskReply) error {
 	call_result := call("Coordinator.CompleteTask", &args, &reply)
 
 	if !call_result {
-		time.Sleep(5 * time.Second)
 		os.Exit(1)
 	}
 	return nil
