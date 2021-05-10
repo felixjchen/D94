@@ -24,7 +24,6 @@ type KeyValue struct {
 // for sorting by key.
 type ByKey []KeyValue
 
-// for sorting by key.
 func (a ByKey) Len() int           { return len(a) }
 func (a ByKey) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByKey) Less(i, j int) bool { return a[i].Key < a[j].Key }
@@ -39,6 +38,7 @@ func ihash(key string) int {
 	return int(h.Sum32() & 0x7fffffff)
 }
 
+// Open file with filename, return file contents
 func get_content(filename string) string {
 	file, err := os.Open(filename)
 	defer file.Close()
@@ -58,11 +58,9 @@ func get_content(filename string) string {
 func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string) string) {
 
 	// Your worker implementation here.
-	// fmt.Println("Worker started!")
-
-	task := get_task()
+	task := call_get_task()
 	for task.TaskType == "m" || task.TaskType == "r" || task.TaskType == "w" {
-		// fmt.Println(task)
+		fmt.Println(task)
 		if task.TaskType == "m" {
 			// Compute map
 			ifile := task.TaskNumber
@@ -84,7 +82,7 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 				}
 				intermediate_files = append(intermediate_files, temp_file)
 			}
-			// For each KV, append to respective file
+			// For each KV, compute hash and append to respective file
 			for _, kv := range kva {
 				Y := ihash(kv.Key) % nReduce
 				fmt.Fprintf(intermediate_files[Y], "%v %v\n", kv.Key, kv.Value)
@@ -98,10 +96,11 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 			}
 
 			// Complete Task
-			complete_task(task)
+			call_complete_task(task)
 
 		} else if task.TaskType == "r" {
-			// Compute reduce
+
+			// Get all input files for this reduce task, bring KV into memory
 			glob_pattern := fmt.Sprintf("map-out-*-%s", task.TaskNumber)
 			intermediate_files, err := filepath.Glob(glob_pattern)
 			if err != nil {
@@ -125,6 +124,7 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 			}
 			sort.Sort(ByKey(intermediate))
 
+			// Output reduce to temp file, then atomic rename
 			temp_name := fmt.Sprintf("mr-out-%s.temp*", task.TaskNumber)
 			temp_file, err := ioutil.TempFile("", temp_name)
 			defer temp_file.Close()
@@ -132,6 +132,7 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 				log.Fatalf("error creating temp file %s", temp_name)
 			}
 
+			// Compute reduce
 			i := 0
 			for i < len(intermediate) {
 				j := i + 1
@@ -148,6 +149,7 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 				fmt.Fprintf(temp_file, "%v %v\n", intermediate[i].Key, output)
 				i = j
 			}
+
 			// Output result, "mr-out-X"
 			// Atomic Rename
 			temp_name = temp_file.Name()
@@ -156,39 +158,41 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 			os.Rename(temp_name, file_name)
 
 			// Complete Task
-			complete_task(task)
+			call_complete_task(task)
+
 		} else {
+			// We recieved a "w" task, or wait. This happens when other works are doing map or reduce tasks and we need to wait for further instruction.
 			// Wait 5 secs
 			time.Sleep(5 * time.Second)
 		}
 
 		// Get next task
-		task = get_task()
+		task = call_get_task()
 	}
 
 	// Done all
 }
 
-func get_task() GetTaskReply {
+func call_get_task() GetTaskReply {
 	args := GetTaskArgs{}
-
 	reply := GetTaskReply{}
 	call_result := call("Coordinator.GetTask", &args, &reply)
 
+	// If call failed, server dead and we can assume all MR tasks arae done.
 	if !call_result {
 		os.Exit(1)
 	}
 	return reply
 }
 
-func complete_task(task GetTaskReply) error {
+func call_complete_task(task GetTaskReply) error {
 	args := CompleteTaskArgs{}
 	args.TaskType = task.TaskType
 	args.TaskNumber = task.TaskNumber
-
 	reply := CompleteTaskReply{}
 	call_result := call("Coordinator.CompleteTask", &args, &reply)
 
+	// If call failed, server dead and we can assume all MR tasks arae done.
 	if !call_result {
 		os.Exit(1)
 	}

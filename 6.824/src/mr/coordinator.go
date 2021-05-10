@@ -24,8 +24,7 @@ type Coordinator struct {
 }
 
 const (
-	OK                 = "OK"
-	ErrUnknownTaskType = "ErrUnknownTaskType"
+	OK = "OK"
 )
 
 // Your code here -- RPC handlers for the worker to call.
@@ -67,7 +66,6 @@ func (c *Coordinator) CompleteTask(args *CompleteTaskArgs, reply *CompleteTaskRe
 
 	task_type := args.TaskType
 	task_number := args.TaskNumber
-
 	if task_type == "m" {
 		c.map_completed[task_number] = true
 		reply.Err = OK
@@ -76,10 +74,8 @@ func (c *Coordinator) CompleteTask(args *CompleteTaskArgs, reply *CompleteTaskRe
 		c.reduce_completed[task_number] = true
 		reply.Err = OK
 		return nil
-	} else {
-		reply.Err = ErrUnknownTaskType
-		return nil
 	}
+	return nil
 }
 
 func (c *Coordinator) GetTask(args *GetTaskArgs, reply *GetTaskReply) error {
@@ -172,7 +168,6 @@ func (c *Coordinator) Done() bool {
 	mapDone := isMapTrue(c.map_completed)
 	reduceDone := isMapTrue(c.reduce_completed)
 
-	// fmt.Println("mapDone", mapDone, "reduceDone", reduceDone)
 	ret = reduceDone && mapDone
 
 	return ret
