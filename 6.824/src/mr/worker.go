@@ -68,15 +68,18 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 		fmt.Println(task)
 		if task.TaskType == "m" {
 			// Compute map
-			filename := task.TaskNumber
-			content := get_content(filename)
-			kva := mapf(filename, string(content))
+			ifile := task.TaskNumber
+			content := get_content(ifile)
+			kva := mapf(ifile, string(content))
 
 			// Output result, nReduce buckets, "mr-out-X-Y"
 			nReduce := task.NReduce
 			intermediate_files := []*os.File{}
 			for i := 0; i < nReduce; i++ {
-				temp_name := fmt.Sprintf("mr-out-%s-%d.temp*", filename, i)
+				t := filepath.Base(ifile)
+				t = strings.Split(t, ".txt")[0]
+
+				temp_name := fmt.Sprintf("map-out-%s-%d.temp*", t, i)
 				temp_file, err := ioutil.TempFile("", temp_name)
 				defer temp_file.Close()
 				if err != nil {
@@ -102,7 +105,7 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 
 		} else if task.TaskType == "r" {
 			// Compute reduce
-			glob_pattern := fmt.Sprintf("mr-out-*-%s", task.TaskNumber)
+			glob_pattern := fmt.Sprintf("map-out-*-%s", task.TaskNumber)
 			intermediate_files, err := filepath.Glob(glob_pattern)
 			if err != nil {
 				log.Fatalf("cannot glob %s", glob_pattern)
@@ -170,35 +173,16 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 
 }
 
-//
-// example function to show how to make an RPC call to the coordinator.
-//
-// the RPC argument and reply types are defined in rpc.go.
-//
-func CallExample() {
-
-	// declare an argument structure.
-	args := ExampleArgs{}
-
-	// fill in the argument(s).
-	args.X = 99
-
-	// declare a reply structure.
-	reply := ExampleReply{}
-
-	// send the RPC request, wait for the reply.
-	call("Coordinator.Example", &args, &reply)
-
-	// reply.Y should be 100.
-	fmt.Printf("reply.Y %v\n", reply.Y)
-}
-
 func get_task() GetTaskReply {
 	args := GetTaskArgs{}
 
 	reply := GetTaskReply{}
-	call("Coordinator.GetTask", &args, &reply)
+	call_result := call("Coordinator.GetTask", &args, &reply)
 
+	if !call_result {
+		time.Sleep(5 * time.Second)
+		os.Exit(1)
+	}
 	return reply
 }
 
@@ -208,8 +192,12 @@ func complete_task(task GetTaskReply) error {
 	args.TaskNumber = task.TaskNumber
 
 	reply := CompleteTaskReply{}
-	call("Coordinator.CompleteTask", &args, &reply)
+	call_result := call("Coordinator.CompleteTask", &args, &reply)
 
+	if !call_result {
+		time.Sleep(5 * time.Second)
+		os.Exit(1)
+	}
 	return nil
 }
 
