@@ -1,0 +1,4 @@
+  - slices vs arrays ? 
+  - interfaces ?
+  - fault tolerence, 10 seconds for completion seems naive, are there betterways to do this
+  - 
