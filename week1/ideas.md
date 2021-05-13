@@ -15,6 +15,7 @@
 - Marshalling may involve serializing the data (JSON encoding)
 
 ## Lab
+- I believe workers can join/leave during a MapReduce computation
 - fault tolerence, 10 seconds for completion seems naive, are there betterways to do this
 - a supervisor mental model seemed helpful, how can I rally all workers to accomplish my computation
 - intermediate file naming is hard
