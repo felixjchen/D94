@@ -59,10 +59,13 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 
 	// Your worker implementation here.
 	task := call_get_task()
+
+	// while task type is map, reduce or wait (DONE==task_type exits)
 	for task.TaskType == "m" || task.TaskType == "r" || task.TaskType == "w" {
 		fmt.Println(task)
+
 		if task.TaskType == "m" {
-			// Compute map
+			// Get file content, compute map
 			ifile := task.TaskNumber
 			content := get_content(ifile)
 			kva := mapf(ifile, string(content))
@@ -71,6 +74,8 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 			nReduce := task.NReduce
 			intermediate_files := []*os.File{}
 			for i := 0; i < nReduce; i++ {
+
+				// trim path to just input file name
 				t := filepath.Base(ifile)
 				t = strings.Split(t, ".txt")[0]
 
@@ -122,6 +127,8 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 					}
 				}
 			}
+
+			// We group all keys together, then call reduce on k, [v], where v all share same key
 			sort.Sort(ByKey(intermediate))
 
 			// Output reduce to temp file, then atomic rename

@@ -13,22 +13,29 @@ import (
 
 type Coordinator struct {
 	// Your definitions here.
-	mu      sync.Mutex
+
+	// Number of reduce jobs
 	nReduce int
 
-	map_assigned    map[string]bool
-	reduce_assigned map[string]bool
+	// Mutex for read write CS on this struct
+	mu sync.Mutex
 
+	// We need assignment maps and completion maps, to figure out if tasks are not being handed in
+	map_assigned     map[string]bool
+	reduce_assigned  map[string]bool
 	map_completed    map[string]bool
 	reduce_completed map[string]bool
 }
 
 const (
-	OK = "OK"
+	OK             = "OK"
+	ErrBadTaskType = "ErrBadTaskType"
 )
 
 // Your code here -- RPC handlers for the worker to call.
+
 func isMapTrue(m map[string]bool) bool {
+	// for kv map, return iff all v is true
 	mapTrue := true
 	for _, v := range m {
 		mapTrue = mapTrue && v
@@ -36,31 +43,33 @@ func isMapTrue(m map[string]bool) bool {
 	return mapTrue
 }
 
+// In 10 seconds, mark task available if not complete
 func watchMapTask(c *Coordinator, task_number string) {
 	time.Sleep(10 * time.Second)
 
+	// If not complete, this needs to be reassigned
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	// If not commplete, this needs to be reassigned
 	if !c.map_completed[task_number] {
 		c.map_assigned[task_number] = false
 	}
 }
 
+// In 10 seconds, mark task available if not complete
 func watchReduceTask(c *Coordinator, task_number string) {
 	time.Sleep(10 * time.Second)
 
+	// If not commlete, this needs to be reassigned
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	// If not commplete, this needs to be reassigned
 	if !c.reduce_completed[task_number] {
 		c.reduce_assigned[task_number] = false
 	}
 }
 
 func (c *Coordinator) CompleteTask(args *CompleteTaskArgs, reply *CompleteTaskReply) error {
+	// RPC, mark task complete
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -75,14 +84,17 @@ func (c *Coordinator) CompleteTask(args *CompleteTaskArgs, reply *CompleteTaskRe
 		reply.Err = OK
 		return nil
 	}
+	reply.Err = ErrBadTaskType
 	return nil
 }
 
 func (c *Coordinator) GetTask(args *GetTaskArgs, reply *GetTaskReply) error {
+	// RPC, get the next job for worker
+
+	// Delegate work, map tasks, wait, reduce tasks, wait, done
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Delegate work
 	// Give first available map task
 	for i, assigned := range c.map_assigned {
 		if !assigned {
