@@ -2,16 +2,21 @@ package raft
 
 import (
 	"log"
+	"time"
 )
 
 // Debugging
 const (
-	Debug     = false
+	Debug     = true
 	Follower  = "follower"
 	Candidate = "candidate"
 	Leader    = "leader"
 	NoVote    = -1
 )
+
+func getEpoch() int64 {
+	return time.Now().UnixNano()
+}
 
 func DPrintf(format string, a ...interface{}) (n int, err error) {
 	if Debug {
