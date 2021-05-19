@@ -25,11 +25,7 @@ func (rf *Raft) getElectionTimeout() time.Duration {
 	min := 200
 	max := 500
 	random_election_timeout := rand.Intn(max-min) + min
-	return time.Duration(random_election_timeout)
-}
-
-func getEpoch() int64 {
-	return time.Now().UnixNano()
+	return time.Millisecond * time.Duration(random_election_timeout)
 }
 
 func DPrintf(format string, a ...interface{}) (n int, err error) {
