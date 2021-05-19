@@ -74,7 +74,6 @@ type Raft struct {
 	// lastApplied int
 
 	heartbeat chan bool
-	votes     int
 	state     string
 
 	// Volatile state on leaders
@@ -308,25 +307,25 @@ func (rf *Raft) ticker() {
 			rf.mu.Lock()
 			rf.currentTerm++
 			rf.votedFor = rf.me
-			rf.votes = 1
 			rf.mu.Unlock()
 
 			electionWon := make(chan bool)
+
 			// begin election
 			// get votes, in parallel goroutines
 			go func() {
 				rf.mu.Lock()
+				defer rf.mu.Unlock()
 				args := &RequestVoteArgs{
 					Term:        rf.currentTerm,
 					CandidateId: rf.me,
 				}
-				me := rf.me
-				rf.mu.Unlock()
 
 				votes := 1
 				votes_mu := sync.Mutex{}
+				// broadcast, get votes from everyone!
 				for i := 0; i < len(rf.peers); i++ {
-					if i != me {
+					if i != rf.me {
 						go func(peer int) {
 							reply := &RequestVoteReply{}
 							rf.sendRequestVote(peer, args, reply)
@@ -380,7 +379,6 @@ func (rf *Raft) ticker() {
 
 			time.Sleep(time.Millisecond * 150)
 		}
-
 	}
 }
 
@@ -407,17 +405,19 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.me = me
 
 	// Your initialization code here (2A, 2B, 2C).
-	rf.state = Follower
-	rf.votes = 0
-	rf.heartbeat = make(chan bool, 100)
 
+	// Persistent state on all servers
 	rf.currentTerm = 1
 	rf.votedFor = NoVote
 	rf.log = []LogEntry{}
 
+	// Volatile state on all servers:
 	// rf.commitIndex = 0
 	// rf.lastApplied = 0
+	rf.state = Follower
+	rf.heartbeat = make(chan bool, 3)
 
+	// Volatile state on leaders:
 	// rf.nextIndex = []int{}
 	// rf.matchIndex = []int{}
 	// for i := 0; i < len(rf.peers); i++ {

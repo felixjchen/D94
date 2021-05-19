@@ -1,14 +1,13 @@
-## Lectures
 
-### Distributed System
+## Distributed System
 - Everyone has cloud => everyone can build a distributed system
 - What kind of tradeoffs affect consistency, and what do we need to give up for a very consistant model
 
-### MapReduce
+## MapReduce
 - Why not Foldl ? This function is more powershell then map and reduce, but it might be harder to parrallelize....
 - MapReduce retries work because both are deterministic functions => Can we create a programming language that runs its programs as a distributed computation ? Feel like some sequential functions will be difficult to compute, but ones like map and reduce can be done in parralel. 
 
-### RPC
+## RPC
 - serializing != marshalling, although they are similar
 - marshalling has intent for moving data
 - serializing may not have this intent, may want to store on disk serialized
