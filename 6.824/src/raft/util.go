@@ -49,8 +49,8 @@ type AppendEntriesArgs struct {
 	LeaderId int
 	// PrevLogIndex int
 	// PrevLogTerm  int
-	Entries      []LogEntry
-	LeaderCommit int
+	Entries []LogEntry
+	// LeaderCommit int
 }
 
 type AppendEntriesReply struct {
