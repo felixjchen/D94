@@ -2,6 +2,7 @@ package raft
 
 import (
 	"log"
+	"math/rand"
 	"time"
 )
 
@@ -13,6 +14,19 @@ const (
 	Leader    = "leader"
 	NoVote    = -1
 )
+
+func (rf *Raft) becomeFollower(term int) {
+	rf.currentTerm = term
+	rf.state = Follower
+	rf.votedFor = NoVote
+}
+
+func (rf *Raft) getElectionTimeout() time.Duration {
+	min := 200
+	max := 500
+	random_election_timeout := rand.Intn(max-min) + min
+	return time.Duration(random_election_timeout)
+}
 
 func getEpoch() int64 {
 	return time.Now().UnixNano()

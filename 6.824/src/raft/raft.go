@@ -20,7 +20,6 @@ package raft
 import (
 	//	"bytes"
 
-	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -169,9 +168,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 
 	// $5.1
 	if args.Term > rf.currentTerm {
-		rf.currentTerm = args.Term
-		rf.state = Follower
-		rf.votedFor = NoVote
+		rf.becomeFollower(args.Term)
 	}
 
 	// 2) Conditions for giving vote
@@ -206,9 +203,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	// $5.1
 	if args.Term > rf.currentTerm {
-		rf.state = Follower
-		rf.currentTerm = args.Term
-		rf.votedFor = NoVote
+		rf.becomeFollower(args.Term)
 	}
 
 	reply.Term = rf.currentTerm
@@ -223,9 +218,7 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	if reply.Term > rf.currentTerm {
-		rf.state = Follower
-		rf.currentTerm = reply.Term
-		rf.votedFor = NoVote
+		rf.becomeFollower(reply.Term)
 	}
 	return ok
 
@@ -236,9 +229,7 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	if reply.Term > rf.currentTerm {
-		rf.state = Follower
-		rf.currentTerm = reply.Term
-		rf.votedFor = NoVote
+		rf.becomeFollower(reply.Term)
 	}
 	return ok
 }
@@ -305,10 +296,7 @@ func (rf *Raft) ticker() {
 			rf.mu.Unlock()
 
 			// Random sleep
-			min := 200
-			max := 400
-			random_election_timeout := rand.Intn(max-min) + min
-			time.Sleep(time.Millisecond * time.Duration(random_election_timeout))
+			time.Sleep(time.Millisecond * rf.getElectionTimeout())
 
 			rf.mu.Lock()
 			this_heartbeat := rf.heartbeat
@@ -326,6 +314,7 @@ func (rf *Raft) ticker() {
 			rf.mu.Lock()
 			rf.currentTerm++
 			rf.votedFor = rf.me
+			me := rf.me
 
 			electionTerm := rf.currentTerm
 			peer_count := len(rf.peers)
@@ -342,28 +331,30 @@ func (rf *Raft) ticker() {
 			// begin election
 			// get votes, in parallel goroutines
 			go func() {
-				votes := 0
+				votes := 1
 				votes_mu := &sync.Mutex{}
 				for i := 0; i < peer_count; i++ {
-					go func(peer int) {
-						reply := RequestVoteReply{}
-						rf.sendRequestVote(peer, &args, &reply)
+					if i != me {
+						go func(peer int) {
+							reply := RequestVoteReply{}
+							rf.sendRequestVote(peer, &args, &reply)
 
-						rf.mu.Lock()
-						isCandidate := rf.state == Candidate
-						sameTerm := electionTerm == rf.currentTerm
-						rf.mu.Unlock()
+							rf.mu.Lock()
+							isCandidate := rf.state == Candidate
+							sameTerm := electionTerm == rf.currentTerm
+							rf.mu.Unlock()
 
-						if sameTerm && isCandidate && reply.VoteGranted {
-							votes_mu.Lock()
-							votes++
+							if sameTerm && isCandidate && reply.VoteGranted {
+								votes_mu.Lock()
+								votes++
 
-							if votes > peer_count/2 {
-								voteChan <- true
+								if votes > peer_count/2 {
+									voteChan <- true
+								}
+								votes_mu.Unlock()
 							}
-							votes_mu.Unlock()
-						}
-					}(i)
+						}(i)
+					}
 				}
 			}()
 
@@ -385,10 +376,6 @@ func (rf *Raft) ticker() {
 				}
 			}()
 
-			min := 200
-			max := 400
-			random_election_timeout := rand.Intn(max-min) + min
-
 			select {
 			case <-heartbeatChan:
 				rf.mu.Lock()
@@ -398,7 +385,7 @@ func (rf *Raft) ticker() {
 				rf.mu.Lock()
 				rf.state = Leader
 				rf.mu.Unlock()
-			case <-time.After(time.Millisecond * time.Duration(random_election_timeout)):
+			case <-time.After(time.Millisecond * rf.getElectionTimeout()):
 			}
 
 		case Leader:
