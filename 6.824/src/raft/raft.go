@@ -73,10 +73,9 @@ type Raft struct {
 	// commitIndex int
 	// lastApplied int
 
-	heartbeat   chan bool
-	electionWon chan bool
-	votes       int
-	state       string
+	heartbeat chan bool
+	votes     int
+	state     string
 
 	// Volatile state on leaders
 	// nextIndex  []int
@@ -312,35 +311,35 @@ func (rf *Raft) ticker() {
 			rf.votes = 1
 			rf.mu.Unlock()
 
+			electionWon := make(chan bool)
 			// begin election
 			// get votes, in parallel goroutines
 			go func() {
 				rf.mu.Lock()
-				defer rf.mu.Unlock()
 				args := &RequestVoteArgs{
 					Term:        rf.currentTerm,
 					CandidateId: rf.me,
 				}
+				me := rf.me
+				rf.mu.Unlock()
 
-				// votes := 1
-				// votes_mu := sync.Mutex{}
-
+				votes := 1
+				votes_mu := sync.Mutex{}
 				for i := 0; i < len(rf.peers); i++ {
-					if i != rf.me {
+					if i != me {
 						go func(peer int) {
 							reply := &RequestVoteReply{}
 							rf.sendRequestVote(peer, args, reply)
 
 							rf.mu.Lock()
 							defer rf.mu.Unlock()
-
 							if rf.state == Candidate && rf.currentTerm == args.Term && reply.VoteGranted {
-								// votes_mu.Lock()
-								rf.votes++
-								// electionWon := false
-								if rf.votes > len(rf.peers)/2 {
+								votes_mu.Lock()
+								defer votes_mu.Unlock()
+								votes++
+								if votes > len(rf.peers)/2 {
 									rf.state = Leader
-									rf.electionWon <- true
+									electionWon <- true
 								}
 							}
 						}(i)
@@ -350,7 +349,7 @@ func (rf *Raft) ticker() {
 
 			select {
 			// majority votes recieved
-			case <-rf.electionWon:
+			case <-electionWon:
 			// viable leader exists
 			case <-rf.heartbeat:
 			// election timeout
@@ -411,7 +410,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.state = Follower
 	rf.votes = 0
 	rf.heartbeat = make(chan bool, 100)
-	rf.electionWon = make(chan bool, 100)
 
 	rf.currentTerm = 1
 	rf.votedFor = NoVote
