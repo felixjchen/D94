@@ -286,7 +286,7 @@ func (rf *Raft) killed() bool {
 // heartsbeats recently.
 func (rf *Raft) ticker() {
 	// election timer
-	for {
+	for !rf.killed() {
 		rf.mu.Lock()
 		state := rf.state
 		rf.mu.Unlock()
