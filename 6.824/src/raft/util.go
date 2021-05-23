@@ -36,16 +36,16 @@ func DPrintf(format string, a ...interface{}) (n int, err error) {
 }
 
 type LogEntry struct {
-	Command string
+	Command interface{}
 	Term    int
 }
 
 type RequestVoteArgs struct {
 	// Your data here (2A, 2B).
-	Term        int
-	CandidateId int
-	// LastLogIndex int
-	// LastLogTerm  int
+	Term         int
+	CandidateId  int
+	LastLogIndex int
+	LastLogTerm  int
 }
 
 type RequestVoteReply struct {
@@ -55,12 +55,12 @@ type RequestVoteReply struct {
 }
 
 type AppendEntriesArgs struct {
-	Term     int
-	LeaderId int
-	// PrevLogIndex int
-	// PrevLogTerm  int
-	Entries []LogEntry
-	// LeaderCommit int
+	Term         int
+	LeaderId     int
+	PrevLogIndex int
+	PrevLogTerm  int
+	Entries      []LogEntry
+	LeaderCommit int
 }
 
 type AppendEntriesReply struct {

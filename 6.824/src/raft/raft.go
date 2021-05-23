@@ -20,6 +20,8 @@ package raft
 import (
 	//	"bytes"
 
+	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -70,15 +72,16 @@ type Raft struct {
 	log         []LogEntry
 
 	// Volatile state on all servers
-	// commitIndex int
-	// lastApplied int
+	commitIndex int
+	lastApplied int
 
+	// Volatile state - mine
 	heartbeat chan bool
 	state     string
 
 	// Volatile state on leaders
-	// nextIndex  []int
-	// matchIndex []int
+	nextIndex  []int
+	matchIndex []int
 }
 
 // return currentTerm and whether this server
@@ -160,7 +163,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
-	// 1) Term < currentTerm
+	// 1. Reply false if term < currentTerm (§5.1)
 	if args.Term < rf.currentTerm {
 		reply.Term = rf.currentTerm
 		reply.VoteGranted = false
@@ -172,10 +175,16 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		rf.becomeFollower(args.Term)
 	}
 
-	// 2) Conditions for giving vote
-	// If I haven't voted and candidate is at least up to date... I will vote for them
-	// up-to-date = candidate is my term or higher, candidate has my logs or more
-	if rf.votedFor == NoVote || rf.votedFor == args.CandidateId {
+	// 2. If votedFor is null or candidateId, and candidate’s log is at least as up-to-date as receiver’s log, grant vote (§5.2, §5.4)
+
+	// "first come first serve"
+
+	// up-to-date =
+	// a) If the logs have last entries with different terms, then the log with the later term is more up-to-date.
+	// b) If the logs end with the same term, then whichever log is longer is more up-to-date.
+	atLeastUpToDate := args.LastLogIndex > rf.log[len(rf.log)-1].Term || (args.LastLogIndex == rf.log[len(rf.log)-1].Term && args.LastLogIndex >= len(rf.log)-1)
+
+	if (rf.votedFor == NoVote || rf.votedFor == args.CandidateId) && atLeastUpToDate {
 		rf.votedFor = args.CandidateId
 		reply.Term = rf.currentTerm
 		reply.VoteGranted = true
@@ -190,24 +199,42 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
-	// 1) term < currentTerm reply false
+	// 1. Reply false if term < currentTerm (§5.1)
 	if args.Term < rf.currentTerm {
 		reply.Term = rf.currentTerm
 		reply.Success = false
 		return
 	}
 
+	// heartbeat
+	rf.heartbeat <- true
+
 	// Rules for Servers (§5.1)
 	if args.Term > rf.currentTerm {
 		rf.becomeFollower(args.Term)
 	}
 
-	// 2) Handle AppendEntries
+	// 2. Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm (§5.3)
+	if rf.log[args.PrevLogIndex].Term != args.PrevLogTerm {
+		reply.Term = rf.currentTerm
+		reply.Success = false
+		return
+	}
+
+	// 3. If an existing entry conflicts with a new one (same index but different terms), delete the existing entry and all that follow it (§5.3)
+	// 4. Append any new entries not already in the log
+	fmt.Println(rf.log, args.Entries)
+	rf.log = append(rf.log[:args.PrevLogIndex+1], args.Entries...)
+	fmt.Println(rf.log)
+
+	// 5. If leaderCommit > commitIndex, set commitIndex = min(leaderCommit, index of last new entry)
+	if args.LeaderCommit > rf.commitIndex {
+		rf.commitIndex = int(math.Min(float64(args.LeaderCommit), float64(len(rf.log)-1)))
+	}
+
 	reply.Term = rf.currentTerm
 	reply.Success = true
-
-	// heartbeat
-	rf.heartbeat <- true
+	return
 }
 
 func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *RequestVoteReply) bool {
@@ -252,11 +279,17 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 // the leader.
 //
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
 	index := -1
 	term := -1
-	isLeader := true
+	isLeader := rf.state == Leader
 
 	// Your code here (2B).
+	if isLeader {
+
+	}
 
 	return index, term, isLeader
 }
@@ -317,8 +350,10 @@ func (rf *Raft) ticker() {
 				rf.mu.Lock()
 				defer rf.mu.Unlock()
 				args := &RequestVoteArgs{
-					Term:        rf.currentTerm,
-					CandidateId: rf.me,
+					Term:         rf.currentTerm,
+					CandidateId:  rf.me,
+					LastLogIndex: len(rf.log) - 1,
+					LastLogTerm:  rf.log[len(rf.log)-1].Term,
 				}
 
 				votes := 1
@@ -362,9 +397,12 @@ func (rf *Raft) ticker() {
 				rf.mu.Lock()
 				defer rf.mu.Unlock()
 				args := &AppendEntriesArgs{
-					Term:     rf.currentTerm,
-					LeaderId: rf.me,
-					Entries:  []LogEntry{},
+					Term:         rf.currentTerm,
+					LeaderId:     rf.me,
+					PrevLogIndex: len(rf.log) - 1,
+					PrevLogTerm:  rf.log[len(rf.log)-1].Term,
+					Entries:      []LogEntry{},
+					LeaderCommit: rf.commitIndex,
 				}
 				// broadcast
 				for i := 0; i < len(rf.peers); i++ {
@@ -376,8 +414,8 @@ func (rf *Raft) ticker() {
 					}
 				}
 			}()
-
 			time.Sleep(time.Millisecond * 150)
+
 		}
 	}
 }
@@ -405,25 +443,31 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.me = me
 
 	// Your initialization code here (2A, 2B, 2C).
+	emptyEntry := LogEntry{
+		Term:    0,
+		Command: "empty",
+	}
 
 	// Persistent state on all servers
 	rf.currentTerm = 1
 	rf.votedFor = NoVote
-	rf.log = []LogEntry{}
+	rf.log = []LogEntry{emptyEntry}
 
 	// Volatile state on all servers:
-	// rf.commitIndex = 0
-	// rf.lastApplied = 0
+	rf.commitIndex = 1
+	rf.lastApplied = 1
+
+	// Volatile - mine
 	rf.state = Follower
 	rf.heartbeat = make(chan bool, 3)
 
 	// Volatile state on leaders:
-	// rf.nextIndex = []int{}
-	// rf.matchIndex = []int{}
-	// for i := 0; i < len(rf.peers); i++ {
-	// 	rf.nextIndex = append(rf.nextIndex, 1)
-	// 	rf.matchIndex = append(rf.matchIndex, 0)
-	// }
+	rf.nextIndex = []int{}
+	rf.matchIndex = []int{}
+	for i := 0; i < len(rf.peers); i++ {
+		rf.nextIndex = append(rf.nextIndex, 1)
+		rf.matchIndex = append(rf.matchIndex, 0)
+	}
 
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
