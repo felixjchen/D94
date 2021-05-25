@@ -1,6 +1,7 @@
 package raft
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"time"
@@ -26,6 +27,14 @@ func (rf *Raft) getElectionTimeout() time.Duration {
 	max := 500
 	random_election_timeout := rand.Intn(max-min) + min
 	return time.Millisecond * time.Duration(random_election_timeout)
+}
+
+func DP(a ...interface{}) {
+	r := ""
+	for _, i := range a {
+		r += fmt.Sprintf(" %+v ", i)
+	}
+	DPrintf("%s", r)
 }
 
 func DPrintf(format string, a ...interface{}) (n int, err error) {
@@ -64,6 +73,7 @@ type AppendEntriesArgs struct {
 }
 
 type AppendEntriesReply struct {
-	Term    int
-	Success bool
+	Term      int
+	NextIndex int
+	Success   bool
 }
