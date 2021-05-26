@@ -20,7 +20,6 @@ package raft
 import (
 	//	"bytes"
 
-	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -86,15 +85,12 @@ type Raft struct {
 // return currentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
-
-	var term int
-	var isleader bool
 	// Your code here (2A).
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
-	term = rf.currentTerm
-	isleader = rf.state == Leader
+	term := rf.currentTerm
+	isleader := rf.state == Leader
 
 	return term, isleader
 }
@@ -197,7 +193,6 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	DP(rf.me, rf.currentTerm, rf.log, args)
 
 	// Rules for Servers (§5.1)
 	if args.Term > rf.currentTerm {
@@ -213,12 +208,13 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	// heartbeat
 	rf.heartbeat <- true
+
 	// 2. Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm (§5.3)
 	if !(args.PrevLogIndex < len(rf.log)) || rf.log[args.PrevLogIndex].Term != args.PrevLogTerm {
 		reply.Term = rf.currentTerm
 		reply.Success = false
 		// we find the next index to try by walking back terms
-		start := int(math.Min(float64(args.PrevLogIndex), float64(len(rf.log)-1)))
+		start := min(args.PrevLogIndex, len(rf.log)-1)
 		conflictTerm := rf.log[start].Term
 		for i := start; i > 0; i-- {
 			if rf.log[i].Term != conflictTerm {
@@ -235,7 +231,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	// 5. If leaderCommit > commitIndex, set commitIndex = min(leaderCommit, index of last new entry)
 	if args.LeaderCommit > rf.commitIndex {
-		rf.commitIndex = int(math.Min(float64(args.LeaderCommit), float64(len(rf.log)-1)))
+		rf.commitIndex = min(args.LeaderCommit, len(rf.log)-1)
 	}
 
 	reply.Term = rf.currentTerm
@@ -270,6 +266,60 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 	return ok
 }
 
+func (rf *Raft) leaderHeartbeat() {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
+	// replicate logs onto followers
+	// once majority replicated, commit
+	for i := 0; i < len(rf.peers); i++ {
+		if i != rf.me {
+			go func(peer int) {
+				rf.mu.Lock()
+				reply := &AppendEntriesReply{}
+				args := &AppendEntriesArgs{
+					Term:         rf.currentTerm,
+					LeaderId:     rf.me,
+					PrevLogIndex: rf.nextIndex[peer] - 1,
+					PrevLogTerm:  rf.log[rf.nextIndex[peer]-1].Term,
+					Entries:      append([]LogEntry{}, rf.log[rf.nextIndex[peer]:]...),
+					LeaderCommit: rf.commitIndex,
+				}
+				rf.mu.Unlock()
+
+				rf.sendAppendEntries(peer, args, reply)
+
+				rf.mu.Lock()
+				defer rf.mu.Unlock()
+				if reply.Success {
+					// Peer has been caught up!
+					rf.nextIndex[peer] = len(rf.log)
+					rf.matchIndex[peer] = len(rf.log) - 1
+				} else {
+					// backoff
+					rf.nextIndex[peer] = max(reply.NextIndex, 1)
+				}
+
+				// If there exists an N such that N > commitIndex, a majority of matchIndex[i] ≥ N, and log[N].term == currentTerm: set commitIndex = N (§5.3, §5.4)
+				for n := len(rf.log) - 1; n > rf.commitIndex && rf.log[n].Term == rf.currentTerm; n-- {
+					replicas := 1
+					for i := 0; i < len(rf.peers); i++ {
+						if i != rf.me {
+							if rf.matchIndex[i] >= n {
+								replicas++
+							}
+						}
+					}
+					if replicas > len(rf.peers)/2 {
+						rf.commitIndex = n
+						break
+					}
+				}
+			}(i)
+		}
+	}
+}
+
 //
 // the service using Raft (e.g. a k/v server) wants to start
 // agreement on the next command to be appended to Raft's log. if this
@@ -286,83 +336,18 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 //
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	rf.mu.Lock()
+	defer rf.mu.Unlock()
 	index := len(rf.log)
 	term := rf.currentTerm
 	isLeader := rf.state == Leader
-	rf.mu.Unlock()
 
 	if isLeader {
 		// If command received from client: append entry to local log, respond after entry applied to state machine (§5.3)
-		rf.mu.Lock()
 		newEntry := LogEntry{
 			Command: command,
 			Term:    term,
 		}
 		rf.log = append(rf.log, newEntry)
-		peers := len(rf.peers)
-		me := rf.me
-		rf.mu.Unlock()
-
-		// replicate logs onto followers
-		// once majority replicated, commit
-		for i := 0; i < peers; i++ {
-			if i != me {
-				go func(peer int) {
-					for {
-						rf.mu.Lock()
-						args := &AppendEntriesArgs{
-							Term:         term,
-							LeaderId:     rf.me,
-							PrevLogIndex: rf.nextIndex[peer] - 1,
-							PrevLogTerm:  rf.log[rf.nextIndex[peer]-1].Term,
-							Entries:      rf.log[rf.nextIndex[peer]:],
-							LeaderCommit: rf.commitIndex,
-						}
-						rf.mu.Unlock()
-						reply := &AppendEntriesReply{}
-						rf.sendAppendEntries(peer, args, reply)
-						DP(reply)
-
-						if reply.Success {
-							rf.mu.Lock()
-							rf.nextIndex[peer] = len(rf.log)
-							rf.matchIndex[peer] = len(rf.log) - 1
-							rf.mu.Unlock()
-							break
-						} else {
-							// backoff
-							rf.mu.Lock()
-							// rf.nextIndex[peer] = int(math.Max(float64(rf.nextIndex[peer]-1), 1))
-							rf.nextIndex[peer] = int(math.Max(float64(reply.NextIndex), 1))
-							rf.mu.Unlock()
-						}
-					}
-
-					rf.mu.Lock()
-					defer rf.mu.Unlock()
-					for n := len(rf.log) - 1; n > rf.commitIndex && rf.log[n].Term == rf.currentTerm; n-- {
-						if rf.log[n].Term != rf.currentTerm {
-							continue
-						}
-
-						replicas := 1
-						for i := 0; i < len(rf.peers); i++ {
-							if i != rf.me {
-								if rf.matchIndex[i] >= n {
-									replicas++
-								}
-							}
-						}
-						if replicas > len(rf.peers)/2 {
-							rf.commitIndex = n
-							break
-						}
-					}
-
-				}(i)
-			}
-		}
-
 	}
 
 	return index, term, isLeader
@@ -389,26 +374,36 @@ func (rf *Raft) killed() bool {
 	return z == 1
 }
 
+// If commitIndex > lastApplied: increment lastApplied, apply log[lastApplied] to state machine (§5.3)
+func (rf *Raft) applyCheck() {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
+	// Rules for Servers (§5.3)
+	for rf.commitIndex > rf.lastApplied {
+		rf.lastApplied++
+		message := ApplyMsg{
+			CommandValid: true,
+			CommandIndex: rf.lastApplied,
+			Command:      rf.log[rf.lastApplied].Command,
+		}
+		rf.apply <- message
+	}
+}
+
 // The ticker go routine starts a new election if this peer hasn't received
 // heartsbeats recently.
 func (rf *Raft) ticker() {
 	for !rf.killed() {
 		rf.mu.Lock()
 		state := rf.state
-
-		// Rules for Servers (§5.3)
-		for rf.commitIndex > rf.lastApplied {
-			rf.lastApplied++
-			message := ApplyMsg{
-				CommandValid: true,
-				CommandIndex: rf.lastApplied,
-				Command:      rf.log[rf.lastApplied].Command,
-			}
-			rf.apply <- message
-		}
 		rf.mu.Unlock()
 
+		// Apply commited logs
+		go rf.applyCheck()
+
 		switch state {
+
 		case Follower:
 			select {
 			// viable leader exists
@@ -484,33 +479,9 @@ func (rf *Raft) ticker() {
 
 		case Leader:
 
-			// Suppress followers
-			go func() {
-				rf.mu.Lock()
-				defer rf.mu.Unlock()
-				args := &AppendEntriesArgs{
-					Term:         rf.currentTerm,
-					LeaderId:     rf.me,
-					PrevLogIndex: len(rf.log) - 1,
-					PrevLogTerm:  rf.log[len(rf.log)-1].Term,
-					Entries:      []LogEntry{},
-					LeaderCommit: rf.commitIndex,
-				}
-				// broadcast
-				for i := 0; i < len(rf.peers); i++ {
-					if i != rf.me {
-						go func(peer int) {
-							reply := &AppendEntriesReply{}
-							rf.sendAppendEntries(peer, args, reply)
-						}(i)
-					}
-				}
-			}()
-
+			go rf.leaderHeartbeat()
 			time.Sleep(time.Millisecond * 100)
 		}
-
-		time.Sleep(10 * time.Millisecond)
 	}
 }
 
@@ -537,24 +508,22 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.me = me
 
 	// Your initialization code here (2A, 2B, 2C).
-	emptyEntry := LogEntry{
-		Term:    0,
-		Command: "empty",
-	}
+	// Volatile - mine
+	rf.state = Follower
+	rf.apply = applyCh
+	rf.heartbeat = make(chan bool, 3)
 
 	// Persistent state on all servers
 	rf.currentTerm = 1
 	rf.votedFor = NoVote
+	emptyEntry := LogEntry{
+		Term: 0,
+	}
 	rf.log = []LogEntry{emptyEntry}
 
 	// Volatile state on all servers:
 	rf.commitIndex = 0
 	rf.lastApplied = 0
-
-	// Volatile - mine
-	rf.state = Follower
-	rf.apply = applyCh
-	rf.heartbeat = make(chan bool, 3)
 
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())

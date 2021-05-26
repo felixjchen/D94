@@ -3,6 +3,7 @@ package raft
 import (
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"time"
 )
@@ -20,6 +21,14 @@ func (rf *Raft) becomeFollower(term int) {
 	rf.currentTerm = term
 	rf.state = Follower
 	rf.votedFor = NoVote
+}
+
+func min(x int, y int) int {
+	return int(math.Min(float64(x), float64(y)))
+}
+
+func max(x int, y int) int {
+	return int(math.Max(float64(x), float64(y)))
 }
 
 func (rf *Raft) getElectionTimeout() time.Duration {
