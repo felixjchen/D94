@@ -14,6 +14,11 @@
     - Lock server requests another client's "recovery demon" to finish based on write-ahead log
 
 ## Distributed Transactions
+  - Atomic
+  - Consistent
+  - Isolated "serializable"
+  - Durable
+
   - Concurrency Control => 2 Phase Locking
     - 1. Lock when transacation sees variable
     - 2. Release when transacation complete
@@ -21,8 +26,9 @@
     - Means our transactions have some serializable order (T1 cannot happen during T2..)
     - Can produce deadlock
     - "Pessimistic", locking causes overhead
+    - "Optmistic", 
 
-  - Atomic Commit => 2 Phase Commit
+  - Atomic Commit => 2 Phase Commit "All or nothing"
     - 1. Coordinator sends all participants a PREPARE message
     - 2. Participants reply with Yes/No
     - 3a. If all yes: 
