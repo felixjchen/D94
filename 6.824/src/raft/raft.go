@@ -18,12 +18,13 @@ package raft
 //
 
 import (
-	//	"bytes"
+	"bytes"
 
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"6.824/labgob"
 	"6.824/labrpc"
 )
 
@@ -63,7 +64,7 @@ type Raft struct {
 	// Your data here (2A, 2B, 2C).
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
-
+	// My Volatile
 	apply     chan ApplyMsg
 	heartbeat chan bool
 	state     string
@@ -102,13 +103,14 @@ func (rf *Raft) GetState() (int, bool) {
 //
 func (rf *Raft) persist() {
 	// Your code here (2C).
-	// Example:
-	// w := new(bytes.Buffer)
-	// e := labgob.NewEncoder(w)
-	// e.Encode(rf.xxx)
-	// e.Encode(rf.yyy)
-	// data := w.Bytes()
-	// rf.persister.SaveRaftState(data)
+	w := new(bytes.Buffer)
+	e := labgob.NewEncoder(w)
+	// We serialize only three important states...
+	e.Encode(rf.currentTerm)
+	e.Encode(rf.votedFor)
+	e.Encode(rf.log)
+	data := w.Bytes()
+	rf.persister.SaveRaftState(data)
 }
 
 //
@@ -119,18 +121,21 @@ func (rf *Raft) readPersist(data []byte) {
 		return
 	}
 	// Your code here (2C).
-	// Example:
-	// r := bytes.NewBuffer(data)
-	// d := labgob.NewDecoder(r)
-	// var xxx
-	// var yyy
-	// if d.Decode(&xxx) != nil ||
-	//    d.Decode(&yyy) != nil {
-	//   error...
-	// } else {
-	//   rf.xxx = xxx
-	//   rf.yyy = yyy
-	// }
+	r := bytes.NewBuffer(data)
+	d := labgob.NewDecoder(r)
+	// Deserialize 3 importatnt states...
+	var currentTerm int
+	var votedFor int
+	var log []LogEntry
+	if d.Decode(&currentTerm) != nil ||
+		d.Decode(&votedFor) != nil ||
+		d.Decode(&log) != nil {
+		// error...
+	} else {
+		rf.currentTerm = currentTerm
+		rf.votedFor = votedFor
+		rf.log = log
+	}
 }
 
 //
@@ -140,7 +145,6 @@ func (rf *Raft) readPersist(data []byte) {
 func (rf *Raft) CondInstallSnapshot(lastIncludedTerm int, lastIncludedIndex int, snapshot []byte) bool {
 
 	// Your code here (2D).
-
 	return true
 }
 
@@ -150,7 +154,6 @@ func (rf *Raft) CondInstallSnapshot(lastIncludedTerm int, lastIncludedIndex int,
 // that index. Raft should now trim its log as much as possible.
 func (rf *Raft) Snapshot(index int, snapshot []byte) {
 	// Your code here (2D).
-
 }
 
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
@@ -181,6 +184,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 
 	if (rf.votedFor == NoVote || rf.votedFor == args.CandidateId) && atLeastUpToDate {
 		rf.votedFor = args.CandidateId
+		rf.persist()
 		reply.Term = rf.currentTerm
 		reply.VoteGranted = true
 	} else {
@@ -228,6 +232,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	// 3. If an existing entry conflicts with a new one (same index but different terms), delete the existing entry and all that follow it (§5.3)
 	// 4. Append any new entries not already in the log
 	rf.log = append(rf.log[:args.PrevLogIndex+1], args.Entries...)
+	rf.persist()
 
 	// 5. If leaderCommit > commitIndex, set commitIndex = min(leaderCommit, index of last new entry)
 	if args.LeaderCommit > rf.commitIndex {
@@ -266,7 +271,7 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 	return ok
 }
 
-func (rf *Raft) leaderHeartbeat() {
+func (rf *Raft) sendHeartbeat() {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
@@ -285,6 +290,10 @@ func (rf *Raft) leaderHeartbeat() {
 					Entries:      append([]LogEntry{}, rf.log[rf.nextIndex[peer]:]...),
 					LeaderCommit: rf.commitIndex,
 				}
+
+				// if len(rf.log) -1 >= rf.nextIndex[peer] {
+				// 	args.PrevLogIndex = rf.nextIndex[peer]
+				// }
 				rf.mu.Unlock()
 
 				rf.sendAppendEntries(peer, args, reply)
@@ -293,8 +302,10 @@ func (rf *Raft) leaderHeartbeat() {
 				defer rf.mu.Unlock()
 				if reply.Success {
 					// Peer has been caught up!
-					rf.nextIndex[peer] = len(rf.log)
-					rf.matchIndex[peer] = len(rf.log) - 1
+					// rf.nextIndex[peer] = len(rf.log)
+					// rf.matchIndex[peer] = len(rf.log) - 1
+					rf.nextIndex[peer] = rf.nextIndex[peer] + len(args.Entries)
+					rf.matchIndex[peer] = rf.nextIndex[peer] + len(args.Entries) - 1
 				} else {
 					// backoff
 					rf.nextIndex[peer] = max(reply.NextIndex, 1)
@@ -348,6 +359,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 			Term:    term,
 		}
 		rf.log = append(rf.log, newEntry)
+		rf.persist()
 	}
 
 	return index, term, isLeader
@@ -419,6 +431,7 @@ func (rf *Raft) ticker() {
 			rf.mu.Lock()
 			rf.currentTerm++
 			rf.votedFor = rf.me
+			rf.persist()
 			rf.mu.Unlock()
 
 			electionWon := make(chan bool)
@@ -479,8 +492,8 @@ func (rf *Raft) ticker() {
 
 		case Leader:
 
-			go rf.leaderHeartbeat()
-			time.Sleep(time.Millisecond * 100)
+			go rf.sendHeartbeat()
+			time.Sleep(time.Millisecond * 60)
 		}
 	}
 }

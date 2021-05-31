@@ -21,6 +21,7 @@ func (rf *Raft) becomeFollower(term int) {
 	rf.currentTerm = term
 	rf.state = Follower
 	rf.votedFor = NoVote
+	rf.persist()
 }
 
 func min(x int, y int) int {
