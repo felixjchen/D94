@@ -290,10 +290,9 @@ func (rf *Raft) sendHeartbeat() {
 					Entries:      append([]LogEntry{}, rf.log[rf.nextIndex[peer]:]...),
 					LeaderCommit: rf.commitIndex,
 				}
+				newNextIndex := rf.nextIndex[peer] + len(args.Entries)
+				newMatchIndex := rf.nextIndex[peer] + len(args.Entries) - 1
 
-				// if len(rf.log) -1 >= rf.nextIndex[peer] {
-				// 	args.PrevLogIndex = rf.nextIndex[peer]
-				// }
 				rf.mu.Unlock()
 
 				rf.sendAppendEntries(peer, args, reply)
@@ -302,10 +301,8 @@ func (rf *Raft) sendHeartbeat() {
 				defer rf.mu.Unlock()
 				if reply.Success {
 					// Peer has been caught up!
-					// rf.nextIndex[peer] = len(rf.log)
-					// rf.matchIndex[peer] = len(rf.log) - 1
-					rf.nextIndex[peer] = rf.nextIndex[peer] + len(args.Entries)
-					rf.matchIndex[peer] = rf.nextIndex[peer] + len(args.Entries) - 1
+					rf.nextIndex[peer] = newNextIndex
+					rf.matchIndex[peer] = newMatchIndex
 				} else {
 					// backoff
 					rf.nextIndex[peer] = max(reply.NextIndex, 1)
