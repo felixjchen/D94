@@ -64,7 +64,7 @@ type Raft struct {
 	// Your data here (2A, 2B, 2C).
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
-	// My Volatile
+	// My Volatile states
 	apply     chan ApplyMsg
 	heartbeat chan bool
 	state     string
@@ -173,15 +173,13 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		return
 	}
 
-	// 2. If votedFor is null or candidateId, and candidate’s log is at least as up-to-date as receiver’s log, grant vote (§5.2, §5.4)
-
-	// "first come first serve"
-
 	// up-to-date =
 	// a) If the logs have last entries with different terms, then the log with the later term is more up-to-date.
 	// b) If the logs end with the same term, then whichever log is longer is more up-to-date.
 	atLeastUpToDate := args.LastLogTerm > rf.log[len(rf.log)-1].Term || (args.LastLogTerm == rf.log[len(rf.log)-1].Term && args.LastLogIndex >= len(rf.log)-1)
 
+	// 2. If votedFor is null or candidateId, and candidate’s log is at least as up-to-date as receiver’s log, grant vote (§5.2, §5.4)
+	// "first come first serve"
 	if (rf.votedFor == NoVote || rf.votedFor == args.CandidateId) && atLeastUpToDate {
 		rf.votedFor = args.CandidateId
 		rf.persist()
@@ -210,7 +208,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		return
 	}
 
-	// heartbeat
+	// viable leader found, update heartbeat
 	rf.heartbeat <- true
 
 	// 2. Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm (§5.3)
@@ -269,6 +267,50 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 		rf.becomeFollower(reply.Term)
 	}
 	return ok
+}
+
+// send request votes, in parallel goroutines
+func (rf *Raft) sendRequestVotes(electionWon chan bool) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	args := &RequestVoteArgs{
+		Term:         rf.currentTerm,
+		CandidateId:  rf.me,
+		LastLogIndex: len(rf.log) - 1,
+		LastLogTerm:  rf.log[len(rf.log)-1].Term,
+	}
+
+	votes := 1
+	votes_mu := sync.Mutex{}
+	// broadcast, get votes from everyone!
+	for i := 0; i < len(rf.peers); i++ {
+		if i != rf.me {
+			go func(peer int) {
+				reply := &RequestVoteReply{}
+				rf.sendRequestVote(peer, args, reply)
+
+				rf.mu.Lock()
+				defer rf.mu.Unlock()
+				if rf.state == Candidate && rf.currentTerm == args.Term && reply.VoteGranted {
+					votes_mu.Lock()
+					defer votes_mu.Unlock()
+					votes++
+					if votes > len(rf.peers)/2 {
+						// Volatile state on leaders:
+						rf.nextIndex = []int{}
+						rf.matchIndex = []int{}
+						for i := 0; i < len(rf.peers); i++ {
+							rf.nextIndex = append(rf.nextIndex, len(rf.log))
+							rf.matchIndex = append(rf.matchIndex, 0)
+						}
+						rf.state = Leader
+
+						electionWon <- true
+					}
+				}
+			}(i)
+		}
+	}
 }
 
 func (rf *Raft) sendHeartbeat() {
@@ -431,52 +473,9 @@ func (rf *Raft) ticker() {
 			rf.persist()
 			rf.mu.Unlock()
 
-			electionWon := make(chan bool)
-
 			// begin election
-			// get votes, in parallel goroutines
-			go func() {
-				rf.mu.Lock()
-				defer rf.mu.Unlock()
-				args := &RequestVoteArgs{
-					Term:         rf.currentTerm,
-					CandidateId:  rf.me,
-					LastLogIndex: len(rf.log) - 1,
-					LastLogTerm:  rf.log[len(rf.log)-1].Term,
-				}
-
-				votes := 1
-				votes_mu := sync.Mutex{}
-				// broadcast, get votes from everyone!
-				for i := 0; i < len(rf.peers); i++ {
-					if i != rf.me {
-						go func(peer int) {
-							reply := &RequestVoteReply{}
-							rf.sendRequestVote(peer, args, reply)
-
-							rf.mu.Lock()
-							defer rf.mu.Unlock()
-							if rf.state == Candidate && rf.currentTerm == args.Term && reply.VoteGranted {
-								votes_mu.Lock()
-								defer votes_mu.Unlock()
-								votes++
-								if votes > len(rf.peers)/2 {
-									// Volatile state on leaders:
-									rf.nextIndex = []int{}
-									rf.matchIndex = []int{}
-									for i := 0; i < len(rf.peers); i++ {
-										rf.nextIndex = append(rf.nextIndex, len(rf.log))
-										rf.matchIndex = append(rf.matchIndex, 0)
-									}
-									rf.state = Leader
-
-									electionWon <- true
-								}
-							}
-						}(i)
-					}
-				}
-			}()
+			electionWon := make(chan bool)
+			go rf.sendRequestVotes(electionWon)
 
 			select {
 			// majority votes recieved
