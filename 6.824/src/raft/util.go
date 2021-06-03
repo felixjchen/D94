@@ -32,7 +32,7 @@ func max(x int, y int) int {
 	return int(math.Max(float64(x), float64(y)))
 }
 
-func (rf *Raft) getRandomElectionTimeout() time.Duration {
+func (rf *Raft) getElectionTimeout() time.Duration {
 	min := 200
 	max := 500
 	random_election_timeout := rand.Intn(max-min) + min

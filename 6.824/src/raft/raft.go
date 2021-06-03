@@ -173,6 +173,8 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		return
 	}
 
+	// 2. If votedFor is null or candidateId, and candidate’s log is at least as up-to-date as receiver’s log, grant vote (§5.2, §5.4)
+
 	// "first come first serve"
 
 	// up-to-date =
@@ -180,7 +182,6 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// b) If the logs end with the same term, then whichever log is longer is more up-to-date.
 	atLeastUpToDate := args.LastLogTerm > rf.log[len(rf.log)-1].Term || (args.LastLogTerm == rf.log[len(rf.log)-1].Term && args.LastLogIndex >= len(rf.log)-1)
 
-	// 2. If votedFor is null or candidateId, and candidate’s log is at least as up-to-date as receiver’s log, grant vote (§5.2, §5.4)
 	if (rf.votedFor == NoVote || rf.votedFor == args.CandidateId) && atLeastUpToDate {
 		rf.votedFor = args.CandidateId
 		rf.persist()
@@ -209,14 +210,14 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		return
 	}
 
-	// valid leader found, refresh heartbeat
+	// heartbeat
 	rf.heartbeat <- true
 
 	// 2. Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm (§5.3)
 	if !(args.PrevLogIndex < len(rf.log)) || rf.log[args.PrevLogIndex].Term != args.PrevLogTerm {
 		reply.Term = rf.currentTerm
 		reply.Success = false
-		// OPTIMIZATION: we find the next index to try by walking back entire term
+		// we find the next index to try by walking back terms
 		start := min(args.PrevLogIndex, len(rf.log)-1)
 		conflictTerm := rf.log[start].Term
 		for i := start; i > 0; i-- {
@@ -270,50 +271,6 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 	return ok
 }
 
-// get votes, in parallel goroutines
-func (rf *Raft) sendRequestVotes(electionWon chan bool) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	args := &RequestVoteArgs{
-		Term:         rf.currentTerm,
-		CandidateId:  rf.me,
-		LastLogIndex: len(rf.log) - 1,
-		LastLogTerm:  rf.log[len(rf.log)-1].Term,
-	}
-
-	votes := 1
-	votes_mu := sync.Mutex{}
-	// broadcast, get votes from everyone!
-	for i := 0; i < len(rf.peers); i++ {
-		if i != rf.me {
-			go func(peer int) {
-				reply := &RequestVoteReply{}
-				rf.sendRequestVote(peer, args, reply)
-
-				rf.mu.Lock()
-				defer rf.mu.Unlock()
-				if rf.state == Candidate && rf.currentTerm == args.Term && reply.VoteGranted {
-					votes_mu.Lock()
-					defer votes_mu.Unlock()
-					votes++
-					// Won election
-					if votes > len(rf.peers)/2 {
-						// Volatile state on leaders
-						rf.nextIndex = []int{}
-						rf.matchIndex = []int{}
-						for i := 0; i < len(rf.peers); i++ {
-							rf.nextIndex = append(rf.nextIndex, len(rf.log))
-							rf.matchIndex = append(rf.matchIndex, 0)
-						}
-						rf.state = Leader
-						electionWon <- true
-					}
-				}
-			}(i)
-		}
-	}
-}
-
 func (rf *Raft) sendHeartbeat() {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -333,8 +290,9 @@ func (rf *Raft) sendHeartbeat() {
 					Entries:      append([]LogEntry{}, rf.log[rf.nextIndex[peer]:]...),
 					LeaderCommit: rf.commitIndex,
 				}
-				newNextIndex := len(rf.log)
-				newMatchIndex := len(rf.log) - 1
+				newNextIndex := rf.nextIndex[peer] + len(args.Entries)
+				newMatchIndex := rf.nextIndex[peer] + len(args.Entries) - 1
+
 				rf.mu.Unlock()
 
 				rf.sendAppendEntries(peer, args, reply)
@@ -442,11 +400,9 @@ func (rf *Raft) applyCheck() {
 	}
 }
 
-// The ticker go routine is the main loop for the raft library, it closely follows the Rules for Servers section in Figure 2. of the raft paper.
-// Depending on our state, we wait for / take actions....
+// The ticker go routine starts a new election if this peer hasn't received
+// heartsbeats recently.
 func (rf *Raft) ticker() {
-
-	// While alive
 	for !rf.killed() {
 		rf.mu.Lock()
 		state := rf.state
@@ -462,7 +418,7 @@ func (rf *Raft) ticker() {
 			// viable leader exists
 			case <-rf.heartbeat:
 			// convert to candidate
-			case <-time.After(rf.getRandomElectionTimeout()):
+			case <-time.After(rf.getElectionTimeout()):
 				rf.mu.Lock()
 				rf.state = Candidate
 				rf.mu.Unlock()
@@ -475,9 +431,52 @@ func (rf *Raft) ticker() {
 			rf.persist()
 			rf.mu.Unlock()
 
-			// begin election
 			electionWon := make(chan bool)
-			go rf.sendRequestVotes(electionWon)
+
+			// begin election
+			// get votes, in parallel goroutines
+			go func() {
+				rf.mu.Lock()
+				defer rf.mu.Unlock()
+				args := &RequestVoteArgs{
+					Term:         rf.currentTerm,
+					CandidateId:  rf.me,
+					LastLogIndex: len(rf.log) - 1,
+					LastLogTerm:  rf.log[len(rf.log)-1].Term,
+				}
+
+				votes := 1
+				votes_mu := sync.Mutex{}
+				// broadcast, get votes from everyone!
+				for i := 0; i < len(rf.peers); i++ {
+					if i != rf.me {
+						go func(peer int) {
+							reply := &RequestVoteReply{}
+							rf.sendRequestVote(peer, args, reply)
+
+							rf.mu.Lock()
+							defer rf.mu.Unlock()
+							if rf.state == Candidate && rf.currentTerm == args.Term && reply.VoteGranted {
+								votes_mu.Lock()
+								defer votes_mu.Unlock()
+								votes++
+								if votes > len(rf.peers)/2 {
+									// Volatile state on leaders:
+									rf.nextIndex = []int{}
+									rf.matchIndex = []int{}
+									for i := 0; i < len(rf.peers); i++ {
+										rf.nextIndex = append(rf.nextIndex, len(rf.log))
+										rf.matchIndex = append(rf.matchIndex, 0)
+									}
+									rf.state = Leader
+
+									electionWon <- true
+								}
+							}
+						}(i)
+					}
+				}
+			}()
 
 			select {
 			// majority votes recieved
@@ -485,10 +484,11 @@ func (rf *Raft) ticker() {
 			// viable leader exists
 			case <-rf.heartbeat:
 			// election timeout
-			case <-time.After(rf.getRandomElectionTimeout()):
+			case <-time.After(rf.getElectionTimeout()):
 			}
 
 		case Leader:
+
 			go rf.sendHeartbeat()
 			time.Sleep(time.Millisecond * 60)
 		}
