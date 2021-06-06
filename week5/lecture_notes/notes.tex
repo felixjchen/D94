@@ -1,0 +1,72 @@
+\documentclass[12pt]{article}
+\usepackage{enumitem}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+
+\usepackage{clrscode3e}
+
+\usepackage[left=0.5in,right=1in]{geometry}
+\renewcommand{\baselinestretch}{1.5}
+\newcommand{\sigmastar}{\Sigma^*}
+
+
+\begin{document}
+
+\section{}
+
+\subsection{Definition: Code}
+A code $C$ of block length $n$ over a finite alphabet $\Sigma$ is any subset of $\Sigma^n$.
+
+$$ C \subseteq \Sigma^n$$
+
+\begin{center}
+  "the set of all possible codewords"
+\end{center}
+
+e.g. $\Sigma = \{0,1\}$, $n=5$, $C = \{00000, 11111, 00001\}$
+
+\subsection{Definition: Dimension of a Code}
+Given a code $C \subseteq \Sigma^n$, $C$ has dimension $k$ defined by:
+
+$$ k = log_{\lvert \Sigma \rvert} \lvert C \rvert $$
+
+\begin{center}
+  "n is the size of any codeword"
+\end{center}
+\begin{center}
+  "k is the size of the decoded codeword"
+\end{center}
+
+Note: $k \leq n$
+
+e.g. $\Sigma = \{0,1\}$, $n=5$, $C = \{00000, 00001, 00010, 00011, 00100, 00101, 00110, 00111\}$ then, $ k = log_2 (8) = 3$
+
+\subsection{Definition: Rate of a code}
+Given a code $C \subseteq \Sigma^n$ with dimension $k$, $C$ has rate $R$ defined by:
+$$ R = \frac{k}{n}$$
+
+\begin{center}
+  "R is the ratio of non-redundent bits, higher is better, lower means more rendency"
+\end{center}
+
+
+\subsection{Definition: Hamming Distance}
+The Hamming Distance between two equal length strings is the number of elementwise differences.
+
+$$d_H = \lvert \{ i \mid x_i \neq y_i \} \rvert$$
+
+e.g. $d_H(bbb, aaa) = 3$
+
+e.g. $d_H(xyz, abc) = 3$
+
+\subsection{Definition: Minimum distance of a code}
+Given a code $C \subseteq \Sigma^n$, $C$'s minimum distance $d$ is the smallest distance between any two codewords in $C$.
+
+$$d = min \{d_H(i,j) \mid i,j \in C, i \neq j \}$$
+
+
+\break
+
+    
+\end{document}
