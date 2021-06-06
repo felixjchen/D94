@@ -89,10 +89,8 @@ func (rf *Raft) GetState() (int, bool) {
 	// Your code here (2A).
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-
 	term := rf.currentTerm
 	isleader := rf.state == Leader
-
 	return term, isleader
 }
 
@@ -176,7 +174,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// up-to-date =
 	// a) If the logs have last entries with different terms, then the log with the later term is more up-to-date.
 	// b) If the logs end with the same term, then whichever log is longer is more up-to-date.
-	atLeastUpToDate := args.LastLogTerm > rf.log[len(rf.log)-1].Term || (args.LastLogTerm == rf.log[len(rf.log)-1].Term && args.LastLogIndex >= len(rf.log)-1)
+	atLeastUpToDate := args.LastLogTerm > rf.lastLogEntry().Term || (args.LastLogTerm == rf.lastLogEntry().Term && args.LastLogIndex >= rf.lastLogEntry().Index)
 
 	// 2. If votedFor is null or candidateId, and candidate’s log is at least as up-to-date as receiver’s log, grant vote (§5.2, §5.4)
 	// "first come first serve"
@@ -212,14 +210,14 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	rf.heartbeat <- true
 
 	// 2. Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm (§5.3)
-	if !(args.PrevLogIndex < len(rf.log)) || rf.log[args.PrevLogIndex].Term != args.PrevLogTerm {
+	if !(args.PrevLogIndex <= rf.lastLogEntry().Index) || rf.logEntry(args.PrevLogIndex).Term != args.PrevLogTerm {
 		reply.Term = rf.currentTerm
 		reply.Success = false
 		// we find the next index to try by walking back terms
-		start := min(args.PrevLogIndex, len(rf.log)-1)
-		conflictTerm := rf.log[start].Term
-		for i := start; i > 0; i-- {
-			if rf.log[i].Term != conflictTerm {
+		start := min(args.PrevLogIndex, rf.lastLogEntry().Index)
+		conflictTerm := rf.logEntry(start).Term
+		for i := start; i > rf.firstLogEntry().Index; i-- {
+			if rf.logEntry(i).Term != conflictTerm {
 				reply.NextIndex = i
 				break
 			}
@@ -229,12 +227,12 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	// 3. If an existing entry conflicts with a new one (same index but different terms), delete the existing entry and all that follow it (§5.3)
 	// 4. Append any new entries not already in the log
-	rf.log = append(rf.log[:args.PrevLogIndex+1], args.Entries...)
+	rf.log = append(rf.log[:rf.getAdjustedIndex(args.PrevLogIndex+1)], args.Entries...)
 	rf.persist()
 
 	// 5. If leaderCommit > commitIndex, set commitIndex = min(leaderCommit, index of last new entry)
 	if args.LeaderCommit > rf.commitIndex {
-		rf.commitIndex = min(args.LeaderCommit, len(rf.log)-1)
+		rf.commitIndex = min(args.LeaderCommit, rf.lastLogEntry().Index)
 	}
 
 	reply.Term = rf.currentTerm
@@ -276,8 +274,8 @@ func (rf *Raft) sendRequestVotes(electionWon chan bool) {
 	args := &RequestVoteArgs{
 		Term:         rf.currentTerm,
 		CandidateId:  rf.me,
-		LastLogIndex: len(rf.log) - 1,
-		LastLogTerm:  rf.log[len(rf.log)-1].Term,
+		LastLogIndex: rf.lastLogEntry().Index,
+		LastLogTerm:  rf.lastLogEntry().Term,
 	}
 
 	votes := 1
@@ -300,7 +298,7 @@ func (rf *Raft) sendRequestVotes(electionWon chan bool) {
 						rf.nextIndex = []int{}
 						rf.matchIndex = []int{}
 						for i := 0; i < len(rf.peers); i++ {
-							rf.nextIndex = append(rf.nextIndex, len(rf.log))
+							rf.nextIndex = append(rf.nextIndex, rf.lastLogEntry().Index+1)
 							rf.matchIndex = append(rf.matchIndex, 0)
 						}
 						rf.state = Leader
@@ -328,8 +326,8 @@ func (rf *Raft) sendHeartbeat() {
 					Term:         rf.currentTerm,
 					LeaderId:     rf.me,
 					PrevLogIndex: rf.nextIndex[peer] - 1,
-					PrevLogTerm:  rf.log[rf.nextIndex[peer]-1].Term,
-					Entries:      append([]LogEntry{}, rf.log[rf.nextIndex[peer]:]...),
+					PrevLogTerm:  rf.logEntry(rf.nextIndex[peer] - 1).Term,
+					Entries:      append([]LogEntry{}, rf.log[rf.getAdjustedIndex(rf.nextIndex[peer]):]...),
 					LeaderCommit: rf.commitIndex,
 				}
 				newNextIndex := rf.nextIndex[peer] + len(args.Entries)
@@ -351,7 +349,7 @@ func (rf *Raft) sendHeartbeat() {
 				}
 
 				// If there exists an N such that N > commitIndex, a majority of matchIndex[i] ≥ N, and log[N].term == currentTerm: set commitIndex = N (§5.3, §5.4)
-				for n := len(rf.log) - 1; n > rf.commitIndex && rf.log[n].Term == rf.currentTerm; n-- {
+				for n := rf.lastLogEntry().Index; n > rf.commitIndex && rf.lastLogEntry().Term == rf.currentTerm; n-- {
 					replicas := 1
 					for i := 0; i < len(rf.peers); i++ {
 						if i != rf.me {
@@ -387,7 +385,7 @@ func (rf *Raft) sendHeartbeat() {
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	index := len(rf.log)
+	index := rf.lastLogEntry().Index + 1
 	term := rf.currentTerm
 	isLeader := rf.state == Leader
 
@@ -396,6 +394,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		newEntry := LogEntry{
 			Command: command,
 			Term:    term,
+			Index:   index,
 		}
 		rf.log = append(rf.log, newEntry)
 		rf.persist()
@@ -436,7 +435,7 @@ func (rf *Raft) applyCheck() {
 		message := ApplyMsg{
 			CommandValid: true,
 			CommandIndex: rf.lastApplied,
-			Command:      rf.log[rf.lastApplied].Command,
+			Command:      rf.logEntry(rf.lastApplied).Command,
 		}
 		rf.apply <- message
 	}
@@ -525,8 +524,10 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	// Persistent state on all servers
 	rf.currentTerm = 1
 	rf.votedFor = NoVote
+	// everyone gets an empty entry... this is for the uptodate
 	emptyEntry := LogEntry{
-		Term: 0,
+		Term:  0,
+		Index: 0,
 	}
 	rf.log = []LogEntry{emptyEntry}
 

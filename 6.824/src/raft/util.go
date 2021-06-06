@@ -24,6 +24,24 @@ func (rf *Raft) becomeFollower(term int) {
 	rf.persist()
 }
 
+func (rf *Raft) lastLogEntry() LogEntry {
+	return rf.log[len(rf.log)-1]
+}
+func (rf *Raft) firstLogEntry() LogEntry {
+	return rf.log[0]
+}
+
+func (rf *Raft) getAdjustedIndex(i int) int {
+	offset := rf.log[0].Index
+	adjustedIndex := i - offset
+	return adjustedIndex
+}
+
+func (rf *Raft) logEntry(i int) LogEntry {
+	adjustedIndex := rf.getAdjustedIndex(i)
+	return rf.log[adjustedIndex]
+}
+
 func min(x int, y int) int {
 	return int(math.Min(float64(x), float64(y)))
 }
@@ -57,6 +75,7 @@ func DPrintf(format string, a ...interface{}) (n int, err error) {
 type LogEntry struct {
 	Command interface{}
 	Term    int
+	Index   int
 }
 
 type RequestVoteArgs struct {
