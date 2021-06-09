@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	Debug     = true
+	Debug     = false
 	Follower  = "follower"
 	Candidate = "candidate"
 	Leader    = "leader"
@@ -24,6 +24,21 @@ func (rf *Raft) becomeFollower(term int) {
 }
 
 // Log helpers
+func (rf *Raft) lastLogEntryTerm() int {
+	lastLogEntryTerm := rf.lastIncludedTerm
+	if len(rf.log) != 0 {
+		lastLogEntryTerm = rf.lastLogEntry().Term
+	}
+	return lastLogEntryTerm
+}
+
+func (rf *Raft) lastLogEntryIndex() int {
+	lastLogEntryIndex := rf.lastIncludedIndex
+	if len(rf.log) != 0 {
+		lastLogEntryIndex = rf.lastLogEntry().Index
+	}
+	return lastLogEntryIndex
+}
 func (rf *Raft) lastLogEntry() LogEntry {
 	return rf.log[len(rf.log)-1]
 }
