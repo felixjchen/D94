@@ -4,11 +4,10 @@ impl KvStore {
   pub fn new() -> KvStore {
     KvStore {}
   }
-
-  pub fn get(&self, key: String) -> Option<String> {
-    Some("todo".to_string())
+  pub fn get(&self, _key: String) -> Option<String> {
+    None
   }
-  pub fn set(&self, key: String, value: String) {}
+  pub fn set(&self, _key: String, _value: String) {}
 
-  pub fn remove(&self, key: String) {}
+  pub fn remove(&self, _key: String) {}
 }
