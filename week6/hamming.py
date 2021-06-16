@@ -1,7 +1,7 @@
 import math
 from lib import *
 
-r = 4
+r = 5
 
 assert r >= 2
 
@@ -92,14 +92,14 @@ def decode(codeword):
 
 
 if __name__ == "__main__":
-    message = "10111011101"
+    message = "10111011101101110111010101"
     print(f"original message {message}")
 
     codeword = encode(message)
 
     print(f"original codeword {codeword}")
 
-    codeword = flip_bit(codeword, 1)
+    codeword = flip_bit(codeword, 3)
 
     print(f"noisy codeword {codeword}")
 

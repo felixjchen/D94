@@ -1,7 +1,7 @@
 # Fdb version 3
-["pdflatex"] 1623801825 "/Users/Felix.Chen@ibm.com/Desktop/D94/week6/notes.tex" "/Users/Felix.Chen@ibm.com/Desktop/D94/week6/notes.pdf" "notes" 1623801827
-  "/Users/Felix.Chen@ibm.com/Desktop/D94/week6/notes.aux" 1623801826 808 6e07dac71c3520335aadf56e40532fcb ""
-  "/Users/Felix.Chen@ibm.com/Desktop/D94/week6/notes.tex" 1623801825 2222 9bf05a83ed88747d52a5c529f5011320 ""
+["pdflatex"] 1623811718 "/Users/Felix.Chen@ibm.com/Desktop/D94/week6/notes.tex" "/Users/Felix.Chen@ibm.com/Desktop/D94/week6/notes.pdf" "notes" 1623811718
+  "/Users/Felix.Chen@ibm.com/Desktop/D94/week6/notes.aux" 1623811718 808 6e07dac71c3520335aadf56e40532fcb ""
+  "/Users/Felix.Chen@ibm.com/Desktop/D94/week6/notes.tex" 1623811717 2221 66060330d2f999076cb19a0153fef697 ""
   "/usr/local/texlive/2019/texmf-dist/fonts/map/fontname/texfonts.map" 1511824771 3332 103109f5612ad95229751940c61aada0 ""
   "/usr/local/texlive/2019/texmf-dist/fonts/tfm/public/amsfonts/cmextra/cmex7.tfm" 1246382020 1004 54797486969f23fa377b128694d548df ""
   "/usr/local/texlive/2019/texmf-dist/fonts/tfm/public/amsfonts/cmextra/cmex8.tfm" 1246382020 988 bdf658c3bfc2d96d3c8b02cfc1c94c20 ""
@@ -76,11 +76,11 @@
   "/usr/local/texlive/2019/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1557342064 3277517 23507ed665b4dd9046f0f2a94bbef2be ""
   "/usr/local/texlive/2019/texmf-var/web2c/pdftex/pdflatex.fmt" 1557342086 4259635 562fc36ec496993777a6c428d8bfb811 ""
   "/usr/local/texlive/2019/texmf.cnf" 1557341546 577 d150fef99ac436ad1156e86b0892f6ef ""
-  "notes.aux" 1623801826 808 6e07dac71c3520335aadf56e40532fcb "pdflatex"
-  "notes.tex" 1623801825 2222 9bf05a83ed88747d52a5c529f5011320 ""
+  "notes.aux" 1623811718 808 6e07dac71c3520335aadf56e40532fcb "pdflatex"
+  "notes.tex" 1623811717 2221 66060330d2f999076cb19a0153fef697 ""
   (generated)
   "notes.pdf"
   "/Users/Felix.Chen@ibm.com/Desktop/D94/week6/notes.log"
   "notes.aux"
-  "/Users/Felix.Chen@ibm.com/Desktop/D94/week6/notes.pdf"
   "notes.log"
+  "/Users/Felix.Chen@ibm.com/Desktop/D94/week6/notes.pdf"
