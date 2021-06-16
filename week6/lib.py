@@ -8,6 +8,14 @@ def pad_left(toPad, char, size):
     return toPad
 
 
+def flip_bit(codeword, flip):
+    new_value = "1" if codeword[flip] == "0" else "0"
+    codeword = list(codeword)
+    codeword[flip] = new_value
+    codeword = "".join(codeword)
+    return codeword
+
+
 def print_block(binary_block, parity_indexes):
     out = "[ "
     for i, b in enumerate(binary_block):

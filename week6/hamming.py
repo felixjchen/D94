@@ -1,7 +1,7 @@
 import math
 from lib import *
 
-r = 3
+r = 4
 
 assert r >= 2
 
@@ -9,7 +9,7 @@ n = 2**r - 1
 k = 2**r - 1 - r
 rate = k / n
 
-# print(f"[{n}, {k}, 3] code, rate = {rate}")
+print(f"[{n}, {k}, 3] code, rate = {rate}")
 
 block = [i for i in range(1, n+1)]
 
@@ -92,18 +92,14 @@ def decode(codeword):
 
 
 if __name__ == "__main__":
-    message = "1011"
+    message = "10111011101"
     print(f"original message {message}")
 
     codeword = encode(message)
 
     print(f"original codeword {codeword}")
 
-    flip = 6
-    new_value = "1" if codeword[flip] == "0" else "0"
-    codeword = list(codeword)
-    codeword[flip] = new_value
-    codeword = "".join(codeword)
+    codeword = flip_bit(codeword, 1)
 
     print(f"noisy codeword {codeword}")
 
