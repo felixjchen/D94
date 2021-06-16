@@ -1,10 +1,10 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.20 (TeX Live 2019) (preloaded format=pdflatex 2019.5.8)  15 JUN 2021 18:46
+This is pdfTeX, Version 3.14159265-2.6-1.40.20 (TeX Live 2019) (preloaded format=pdflatex 2019.5.8)  15 JUN 2021 20:03
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
  %&-line parsing enabled.
-**/Users/Felix.Chen@ibm.com/Desktop/D94/week5/lecture_notes/notes.tex
-(/Users/Felix.Chen@ibm.com/Desktop/D94/week5/lecture_notes/notes.tex
+**/Users/Felix.Chen@ibm.com/Desktop/D94/week6/notes.tex
+(/Users/Felix.Chen@ibm.com/Desktop/D94/week6/notes.tex
 LaTeX2e <2018-12-01>
 (/usr/local/texlive/2019/texmf-dist/tex/latex/base/article.cls
 Document Class: article 2018/09/03 v1.4i Standard LaTeX document class
@@ -168,7 +168,7 @@ Package: ifxetex 2010/09/12 v0.6 Provides ifxetex conditional
 \Gm@layouthoffset=\dimen128
 \Gm@layoutvoffset=\dimen129
 \Gm@dimlist=\toks23
-) (/Users/Felix.Chen@ibm.com/Desktop/D94/week5/lecture_notes/notes.aux)
+) (/Users/Felix.Chen@ibm.com/Desktop/D94/week6/notes.aux)
 \openout1 = `notes.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 16.
@@ -276,26 +276,20 @@ LaTeX Font Info:    Try loading font information for U+msb on input line 21.
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 ) [1
 
-{/usr/local/texlive/2019/texmf-var/fonts/map/pdftex/updmap/pdftex.map}] [2]
-<field.png, id=17, 951.555pt x 264.99pt>
-File: field.png Graphic file (type png)
-<use field.png>
-Package pdftex.def Info: field.png  used on input line 83.
-(pdftex.def)             Requested size: 475.77634pt x 132.49467pt.
- [3 </Users/Felix.Chen@ibm.com/Desktop/D94/week5/lecture_notes/field.png>] [4] [5] (/Users/Felix.Chen@ibm.com/Desktop/D94/week5/lecture_notes/notes.aux) ) 
+{/usr/local/texlive/2019/texmf-var/fonts/map/pdftex/updmap/pdftex.map}] [2] (/Users/Felix.Chen@ibm.com/Desktop/D94/week6/notes.aux) ) 
 Here is how much of TeX's memory you used:
- 3784 strings out of 492616
- 54855 string characters out of 6129482
- 132112 words of memory out of 5000000
- 7647 multiletter control sequences out of 15000+600000
- 9496 words of font info for 36 fonts, out of 8000000 for 9000
+ 3788 strings out of 492616
+ 54760 string characters out of 6129482
+ 133112 words of memory out of 5000000
+ 7649 multiletter control sequences out of 15000+600000
+ 11069 words of font info for 42 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 41i,5n,27p,358b,141s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 41i,8n,27p,316b,175s stack positions out of 5000i,500n,10000p,200000b,80000s
 </usr/local/texlive/2019/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></usr/local/texlive/2019/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></usr/local/texlive/2019/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi12.pfb></usr/local/texlive/2019/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></usr/local/texlive/2019/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/local/texlive/2019/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/local/texlive/2019/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/local/texlive/2019/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/local/texlive/2019/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb>
-Output written on /Users/Felix.Chen@ibm.com/Desktop/D94/week5/lecture_notes/notes.pdf (5 pages, 114654 bytes).
+Output written on /Users/Felix.Chen@ibm.com/Desktop/D94/week6/notes.pdf (2 pages, 82183 bytes).
 PDF statistics:
- 59 PDF objects out of 1000 (max. 8388607)
- 40 compressed objects within 1 object stream
+ 47 PDF objects out of 1000 (max. 8388607)
+ 33 compressed objects within 1 object stream
  0 named destinations out of 1000 (max. 500000)
- 6 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 1 words of extra memory for PDF output out of 10000 (max. 10000000)
 

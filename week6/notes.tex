@@ -1,0 +1,73 @@
+\documentclass[12pt]{article}
+\usepackage{enumitem}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{mathtools}
+
+\usepackage{clrscode3e}
+
+\usepackage[left=0.5in,right=1in]{geometry}
+\renewcommand{\baselinestretch}{1.5}
+\newcommand{\sigmastar}{\Sigma^*}
+
+\DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
+
+\begin{document}
+
+\section{Generator and Parity Check Matricies}
+
+\subsection{Recall: Linear Code}
+We say that $C \subseteq \Sigma^n$ is a linear code if $C$  is a linear subspace of $\Sigma^n$ where $\Sigma$ is a finite field. i.e.:
+
+\begin{enumerate}
+  \item $0 \in C$
+  \item $\forall a,b \in C, a+b \in C$ 
+\end{enumerate}
+
+\begin{center}
+  "a linear code is an error-correcting code for which any linear combination of codewords is also a codeword"
+\end{center}
+
+
+\subsection{Definition: Generator Matrix}
+Given some linear code $C \subseteq \Sigma^n$, we can create a basis that spans $C$. Let $G$ be a generator matrix, who's rows form a basis for $C$. We can use $G \in \mathbb{R}^{k \times n}$ to generate codewords given a message $m \in \Sigma^k$:
+
+
+  $$\underbrace{c}_\text{$1 \times n$} = 
+  \underbrace{m}_\text{$1 \times k$} \underbrace{G}_\text{$k \times n$} $$
+
+
+Where $c$ is some codeword.
+
+
+\subsection{Definition: Parity Check Matrix}
+Given some linear code $C \subseteq \Sigma^n$, a parity check matrix $H$ can be used to check if a codeword $c \in C$.
+
+$$ \underbrace{H}_\text{$(n-k) \times n$} \underbrace{c^T}_\text{$n \times 1$}  = \mathbf{0} \iff c \in C  $$
+
+\section{Hamming Codes}
+
+\begin{center}
+  "Hamming was interested in two problems at once: increasing the distance as much as possible, while at the same time increasing the code rate as much as possible."
+\end{center}
+
+\subsection{Definition: Parity Bit}
+A parity bit is a bit, it's added to a string of bits to ensure the total number of 1's in a string is even or odd. 
+
+e.g. Even parity bit is added to make the total number of 1's even. 
+
+\begin{center}
+  \begin{tabular}{ c | c | c }
+   string & number of 1's & even parity bit \\ 
+   \hline
+   0001000 & 1 & 1 \\  
+   0001111 & 4 & 0 \\
+   0101010 & 3 & 1     
+  \end{tabular}
+\end{center}
+
+\subsection{Definition: Hamming Code}
+
+    
+\end{document}
