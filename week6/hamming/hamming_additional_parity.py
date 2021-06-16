@@ -114,6 +114,7 @@ if __name__ == "__main__":
     print(f"original codeword {codeword}")
 
     codeword = flip_bit(codeword, 1)
+    codeword = flip_bit(codeword, 6)
 
     print(f"noisy codeword {codeword}")
 
