@@ -90,3 +90,13 @@ type LogEntry struct {
 	Term    int
 	Index   int
 }
+
+// func encodeArray(log []LogEntry) []byte {
+// 	w := new(bytes.Buffer)
+// 	e := labgob.NewEncoder(w)
+// 	for _, entry := range log {
+// 		iCommand := entry.Command.(int)
+// 		e.Encode(iCommand)
+// 	}
+// 	return w.Bytes()
+// }

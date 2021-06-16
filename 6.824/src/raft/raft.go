@@ -126,7 +126,6 @@ func (rf *Raft) readPersist(data []byte) {
 	// Your code here (2C).
 	r := bytes.NewBuffer(data)
 	d := labgob.NewDecoder(r)
-	// Deserialize 3 importatnt states...
 	var currentTerm int
 	var votedFor int
 	var snapshot []byte
@@ -148,6 +147,39 @@ func (rf *Raft) readPersist(data []byte) {
 		rf.snapshot = snapshot
 		rf.log = log
 	}
+}
+
+// the service says it has created a snapshot that has
+// all info up to and including index. this means the
+// service no longer needs the log through (and including)
+// that index. Raft should now trim its log as much as possible.
+func (rf *Raft) Snapshot(index int, snapshot []byte) {
+	// Your code here (2D).
+	go func() {
+		rf.mu.Lock()
+		defer rf.mu.Unlock()
+		DP("Snapshot", rf.me, rf.snapshot, rf.log, index, snapshot)
+
+		// This snapshot is late .... its inside our current snapshot
+		if index < rf.lastIncludedIndex {
+			return
+		}
+
+		/// DECODE
+		// r := bytes.NewBuffer(snapshot)
+		// d := labgob.NewDecoder(r)
+		// var v2 int
+		// d.Decode(&v2)
+		// fmt.Println(v2, index)
+
+		// set snapshot
+		rf.snapshot = snapshot
+		rf.lastIncludedIndex = index
+		rf.lastIncludedTerm = rf.logEntry(index).Term
+		// // trim log
+		rf.log = rf.log[rf.getAdjustedIndex(index)+1:]
+		rf.persist()
+	}()
 }
 
 //
@@ -193,32 +225,6 @@ func (rf *Raft) CondInstallSnapshot(lastIncludedTerm int, lastIncludedIndex int,
 	}
 	rf.persist()
 	return true
-}
-
-// the service says it has created a snapshot that has
-// all info up to and including index. this means the
-// service no longer needs the log through (and including)
-// that index. Raft should now trim its log as much as possible.
-func (rf *Raft) Snapshot(index int, snapshot []byte) {
-	// Your code here (2D).
-	go func() {
-		rf.mu.Lock()
-		defer rf.mu.Unlock()
-		DP("Snapshot", rf.me, rf.snapshot, rf.log, index, snapshot)
-
-		// This snapshot is late .... its inside our current snapshot
-		if index < rf.lastIncludedIndex {
-			return
-		}
-
-		// set snapshot
-		rf.snapshot = snapshot
-		rf.lastIncludedIndex = index
-		rf.lastIncludedTerm = rf.logEntry(index).Term
-		// trim log
-		rf.log = rf.log[rf.getAdjustedIndex(index)+1:]
-		rf.persist()
-	}()
 }
 
 func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapshotReply) {
@@ -457,11 +463,11 @@ func (rf *Raft) sendHeartbeat() {
 						prevLogTerm = rf.logEntry(rf.nextIndex[peer] - 1).Term
 					}
 
+					// Only slice if there is a slice to take
 					entries := []LogEntry{}
-					// Only slice if not heartbeat and log exists
 					if len(rf.log) != 0 && rf.getAdjustedIndex(rf.nextIndex[peer]) < len(rf.log) {
 						// clone because shared mem leads to race conditions
-						entries = append(entries, rf.log[rf.getAdjustedIndex(rf.nextIndex[peer]):]...)
+						entries = append([]LogEntry{}, rf.log[rf.getAdjustedIndex(rf.nextIndex[peer]):]...)
 					}
 
 					reply := &AppendEntriesReply{}
@@ -697,8 +703,9 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	// everyone gets an empty entry... this is for the uptodate
 	emptyEntry := LogEntry{
-		Term:  0,
-		Index: 0,
+		Term:    0,
+		Index:   0,
+		Command: 0,
 	}
 	rf.log = []LogEntry{emptyEntry}
 

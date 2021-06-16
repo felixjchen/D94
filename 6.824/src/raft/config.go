@@ -225,6 +225,9 @@ func (cfg *config) applierSnap(i int, applyCh chan ApplyMsg) {
 				v := m.Command
 				e.Encode(v)
 				cfg.rafts[i].Snapshot(m.CommandIndex, w.Bytes())
+
+				// snapshot := encodeArray(cfg.rafts[i].log)
+				// cfg.rafts[i].Snapshot(m.CommandIndex, snapshot)
 			}
 		} else {
 			// Ignore other types of ApplyMsg or old
