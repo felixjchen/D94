@@ -1,7 +1,7 @@
 import math
 from lib import *
 
-r = 5
+r = 3
 
 assert r >= 2
 
@@ -92,7 +92,7 @@ def decode(codeword):
 
 
 if __name__ == "__main__":
-    message = "10111011101101110111010101"
+    message = "0001"
     print(f"original message {message}")
 
     codeword = encode(message)
