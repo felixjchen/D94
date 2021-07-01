@@ -21,7 +21,11 @@ impl KvStore {
     let mut path = path.into();
     path.push("kvstore.log");
     // Path is of type String
-    let path = path.clone().into_os_string().into_string()?;
+    let path = path.into_os_string().into_string()?;
+    OpenOptions::new()
+      .create(true)
+      .write(true)
+      .open(path.clone())?;
 
     Ok(KvStore { path })
   }
@@ -42,7 +46,6 @@ impl KvStore {
     let mut map: HashMap<String, String> = HashMap::new();
     let file = OpenOptions::new().read(true).open(self.path.clone())?;
     let reader = BufReader::new(file);
-
     for line in reader.lines() {
       let deserialized: Command = serde_json::from_str(&line?)?;
 
