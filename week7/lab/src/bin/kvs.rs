@@ -1,8 +1,8 @@
 use clap::{App, Arg, SubCommand};
-use kvs::KvStore;
+use kvs::{KvStore, Result};
 use std::process;
 
-fn main() {
+fn main() -> Result<()> {
   let matches = App::new(env!("CARGO_PKG_NAME"))
     .version(env!("CARGO_PKG_VERSION"))
     .author(env!("CARGO_PKG_AUTHORS"))
@@ -32,13 +32,12 @@ fn main() {
     .get_matches();
 
   if let Some(matches) = matches.subcommand_matches("set") {
-    println!(
-      "SET k {} v {}",
-      matches.value_of("key").unwrap(),
-      matches.value_of("value").unwrap()
-    );
-    eprint!("unimplemented");
-    process::exit(-1)
+    let key = matches.value_of("key").unwrap().to_string();
+    let value = matches.value_of("value").unwrap().to_string();
+
+    let mut kvs = KvStore::open("prod.txt")?;
+    kvs.set(key, value)?;
+    process::exit(0)
   }
 
   if let Some(matches) = matches.subcommand_matches("get") {

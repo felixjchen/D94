@@ -23,7 +23,10 @@ impl KvStore {
     let path = path.clone().into_os_string().into_string()?;
 
     // Create file if DNE
-    let file = OpenOptions::new().create(true).open("foo.txt")?;
+    let file = OpenOptions::new()
+      .write(true)
+      .create(true)
+      .open("foo.txt")?;
 
     Ok(KvStore { path })
   }
@@ -38,10 +41,10 @@ impl KvStore {
     writeln!(file, "{}", serialized_command)?;
     Ok(())
   }
-  pub fn remove(&mut self, key: String) -> Result<()> {
+  pub fn get(&mut self, key: String) -> Result<Option<String>> {
     Err(KvsError::OtherError("not implemented".to_string()))
   }
-  pub fn get(&mut self, key: String) -> Result<Option<String>> {
+  pub fn remove(&mut self, key: String) -> Result<()> {
     Err(KvsError::OtherError("not implemented".to_string()))
   }
 }
