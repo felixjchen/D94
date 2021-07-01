@@ -56,7 +56,13 @@ fn main() -> Result<()> {
     let key = matches.value_of("key").unwrap().to_string();
 
     let mut kvs = KvStore::open("")?;
-    kvs.remove(key)?;
+    match kvs.remove(key) {
+      Ok(()) => (),
+      Err(_) => {
+        println!("Key not found");
+        process::exit(-1)
+      }
+    };
     process::exit(0)
   }
 

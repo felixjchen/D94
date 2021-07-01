@@ -16,12 +16,29 @@ pub struct KvStore {
 }
 
 impl KvStore {
+  // Bring log into memory
+  fn get_map(&mut self) -> Result<HashMap<String, String>> {
+    let mut map: HashMap<String, String> = HashMap::new();
+    let file = OpenOptions::new().read(true).open(self.path.clone())?;
+    let reader = BufReader::new(file);
+    for line in reader.lines() {
+      let deserialized: Command = serde_json::from_str(&line?)?;
+      match deserialized {
+        Command::Set { key, value } => map.insert(key, value),
+        Command::Remove { key } => map.remove(&key),
+      };
+    }
+    Ok(map)
+  }
+
   pub fn open(path: impl Into<PathBuf>) -> Result<KvStore> {
     // Path is of type PathBuf
     let mut path = path.into();
     path.push("kvstore.log");
     // Path is of type String
     let path = path.into_os_string().into_string()?;
+
+    // Create log file if DNE
     OpenOptions::new()
       .create(true)
       .write(true)
@@ -43,22 +60,28 @@ impl KvStore {
   }
   pub fn get(&mut self, key: String) -> Result<Option<String>> {
     // Bring log into memory
-    let mut map: HashMap<String, String> = HashMap::new();
-    let file = OpenOptions::new().read(true).open(self.path.clone())?;
-    let reader = BufReader::new(file);
-    for line in reader.lines() {
-      let deserialized: Command = serde_json::from_str(&line?)?;
-
-      match deserialized {
-        Command::Set { key, value } => map.insert(key, value),
-        Command::Remove { key } => map.remove(&key),
-      };
-    }
-
+    let map = self.get_map()?;
     // Respond according to current kvstore
     Ok(map.get(&key).cloned())
   }
+
   pub fn remove(&mut self, key: String) -> Result<()> {
-    Err(KvsError::OtherError("not implemented".to_string()))
+    // Bring log into memory
+    let map = self.get_map()?;
+
+    if map.contains_key(&key) {
+      let command = Command::Remove { key };
+      let serialized_command = serde_json::to_string(&command)?;
+      // Append to log
+      let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(true)
+        .open(self.path.clone())?;
+      writeln!(file, "{}", serialized_command)?;
+      Ok(())
+    } else {
+      Err(KvsError::KeyNotFound)
+    }
   }
 }

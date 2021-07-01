@@ -2,6 +2,7 @@ use std::ffi::OsString;
 
 #[derive(Debug)]
 pub enum KvsError {
+  KeyNotFound,
   SerdeError(serde_json::Error),
   IoError(std::io::Error),
   OsStringError(OsString),
