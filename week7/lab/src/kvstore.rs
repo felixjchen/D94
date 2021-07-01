@@ -31,6 +31,26 @@ impl KvStore {
     Ok(map)
   }
 
+  fn compact_log(&mut self) -> Result<()> {
+    let map = self.get_map()?;
+    // Empty current log
+    let mut file = OpenOptions::new()
+      .write(true)
+      .append(true)
+      .open(self.path.clone())?;
+    file.set_len(0)?;
+
+    // Write all new entries
+    for (key, value) in map.iter() {
+      let key = key.to_string();
+      let value = value.to_string();
+      let command = Command::Set { key, value };
+      let serialized_command = serde_json::to_string(&command)?;
+      writeln!(file, "{}", serialized_command)?;
+    }
+    Ok(())
+  }
+
   pub fn open(path: impl Into<PathBuf>) -> Result<KvStore> {
     // Path is of type PathBuf
     let mut path = path.into();
@@ -47,15 +67,17 @@ impl KvStore {
     Ok(KvStore { path })
   }
   pub fn set(&mut self, key: String, value: String) -> Result<()> {
-    let command = Command::Set { key, value };
-    let serialized_command = serde_json::to_string(&command)?;
     // Append to log
     let mut file = OpenOptions::new()
       .create(true)
       .write(true)
       .append(true)
       .open(self.path.clone())?;
+    let command = Command::Set { key, value };
+    let serialized_command = serde_json::to_string(&command)?;
     writeln!(file, "{}", serialized_command)?;
+
+    self.compact_log()?;
     Ok(())
   }
   pub fn get(&mut self, key: String) -> Result<Option<String>> {
@@ -70,14 +92,14 @@ impl KvStore {
     let map = self.get_map()?;
 
     if map.contains_key(&key) {
-      let command = Command::Remove { key };
-      let serialized_command = serde_json::to_string(&command)?;
       // Append to log
       let mut file = OpenOptions::new()
         .create(true)
         .write(true)
         .append(true)
         .open(self.path.clone())?;
+      let command = Command::Remove { key };
+      let serialized_command = serde_json::to_string(&command)?;
       writeln!(file, "{}", serialized_command)?;
       Ok(())
     } else {
