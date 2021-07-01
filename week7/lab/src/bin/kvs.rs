@@ -35,21 +35,29 @@ fn main() -> Result<()> {
     let key = matches.value_of("key").unwrap().to_string();
     let value = matches.value_of("value").unwrap().to_string();
 
-    let mut kvs = KvStore::open("prod.txt")?;
+    let mut kvs = KvStore::open("")?;
     kvs.set(key, value)?;
     process::exit(0)
   }
 
   if let Some(matches) = matches.subcommand_matches("get") {
-    println!("GET k: {}", matches.value_of("key").unwrap());
-    eprint!("unimplemented");
-    process::exit(-1)
+    let key = matches.value_of("key").unwrap().to_string();
+
+    let mut kvs = KvStore::open("")?;
+    match kvs.get(key)? {
+      None => println!("Key not found"),
+      Some(value) => println!("{}", value),
+    };
+
+    process::exit(0)
   }
 
   if let Some(matches) = matches.subcommand_matches("rm") {
-    println!("REMOVE k: {}", matches.value_of("key").unwrap());
-    eprint!("unimplemented");
-    process::exit(-1)
+    let key = matches.value_of("key").unwrap().to_string();
+
+    let mut kvs = KvStore::open("")?;
+    kvs.remove(key)?;
+    process::exit(0)
   }
 
   // No matches, BAD
