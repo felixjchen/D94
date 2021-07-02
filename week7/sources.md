@@ -1,0 +1,2 @@
+[Polynomial Interpolation](https://www2.math.uconn.edu/~leykekhman/courses/MATH3795/Lectures/Lecture_14_poly_interp.pdf)
+[RS](https://www.cs.cmu.edu/afs/cs/project/pscico-guyb/realworld/www/slidesF15/ecc4.pdf)
