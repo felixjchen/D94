@@ -13,6 +13,7 @@ enum Command {
 
 pub struct KvStore {
   path: String,
+  map: HashMap<String, String>,
 }
 
 impl KvStore {
@@ -64,10 +65,17 @@ impl KvStore {
       .write(true)
       .open(path.clone())?;
 
-    Ok(KvStore { path })
+    let map = HashMap::new();
+    let mut result = KvStore { path, map };
+    // Bring log into memory
+    result.map = result.get_map()?;
+
+    Ok(result)
   }
   pub fn set(&mut self, key: String, value: String) -> Result<()> {
-    // Append to log
+    // Append to memory
+    self.map.insert(key.clone(), value.clone());
+    // Append to disk
     let mut file = OpenOptions::new()
       .create(true)
       .write(true)
@@ -81,18 +89,16 @@ impl KvStore {
     Ok(())
   }
   pub fn get(&mut self, key: String) -> Result<Option<String>> {
-    // Bring log into memory
-    let map = self.get_map()?;
     // Respond according to current kvstore
-    Ok(map.get(&key).cloned())
+    Ok(self.map.get(&key).cloned())
   }
 
   pub fn remove(&mut self, key: String) -> Result<()> {
-    // Bring log into memory
-    let map = self.get_map()?;
+    if self.map.contains_key(&key) {
+      // Remove from map
+      self.map.remove(&key);
 
-    if map.contains_key(&key) {
-      // Append to log
+      // Append to disk
       let mut file = OpenOptions::new()
         .create(true)
         .write(true)
