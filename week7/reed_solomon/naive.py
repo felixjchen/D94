@@ -23,18 +23,32 @@ print(f"A [{n}, {k}, {d}] reed solomon code")
 print(f"Detects {t} errors")
 print(f"Detects and corrects {t//2} errors")
 
+def interpolate(xs, ys, degree):
+  '''Returns the coefficient for a polynomial with degree'''
+
+  assert len(xs) >= degree + 1 and len(ys) >= degree + 1, f"Cannot interpolate {xs} {ys}, missing data"
+  # We only need n+1 points for a degree poly
+  xs = xs[:degree+1]
+  ys = ys[:degree+1]
+
+  V = np.vander(xs, degree + 1)
+
+  x = np.linalg.solve(V,  ys)
+  x = np.rint(x)
+  return x
+
+def verify(coefficients, xs, ys):
+  ''' Verifies a polynomial with coefficients maps xs to ys'''
+  V = np.vander(xs, k)
+  return np.allclose(V @ coefficients, ys)
+
 
 # Evaluate the polynomial p(x) at [1, n]
 # p(x) is a polynomial of degree k-1, with coefficients from message
 def encode(message):
-
-  def p(x):
-    res = 0
-    for i, coeff in enumerate(message[::-1]):
-      res += coeff * (x**i)
-    return res 
-
-  return [p(i) for i in evaluation_points]
+  V  = np.vander(evaluation_points, k)
+  coefficients = np.array(message)
+  return V @ coefficients
 
 # Interpolate
 def decode(codeword):
@@ -45,39 +59,34 @@ def decode(codeword):
   # 3. t//2 < # errors <= t 
   # '''
 
-  codeword = np.array(codeword)
-
   # Cases:
   # 1. No errors
   # interpolate a degree k-1 polynomial (with k points), verify all points
 
   # Get first k-1 deg poly 
-  ys = codeword[:k]
-  xs = evaluation_points[:k]
-  V = np.vander(np.array(xs), k)
-  # dp(V, ys)
-  coefficients = np.linalg.solve(V, ys)
-  coefficients = np.rint(coefficients)
-  # dp(coefficients)
-
-  # Check coefficients works for all points
-  V = np.vander(np.array(evaluation_points), k)
-  if np.allclose(V @ coefficients, codeword):
+  coefficients = interpolate(evaluation_points, codeword, k-1)
+  if verify(coefficients, evaluation_points, codeword):
     print("No errors!")
     return list(coefficients)
 
   # 2. 0 < # errors <= t//2 
+  # Brute force all <= t//2 sized errors
   for errors in itertools.product(range(0,n), repeat=t//2):
     dp("guessing errors:", set(errors))
 
-    remaining_points = set(evaluation_points) - set(errors)
-    dp(f"Checking points {remaining_points}")
+    xs = np.array(list(set(evaluation_points) - set(errors)))
+    ys = codeword[xs]
+    coefficients = interpolate(xs, ys, k-1)
+    if verify(coefficients, xs, ys):
+      print(f"Found errors {errors}")
+      return coefficients
 
   # 3. t//2 < # errors <= t 
+
   pass
 
 if __name__ == "__main__":
-  message = [1,0,0]
+  message = [1,0,3]
   print(f"Message  {message}")
   assert len(message) == k 
 
@@ -86,7 +95,7 @@ if __name__ == "__main__":
   assert len(codeword) == n 
 
   codeword[1] = -44
-  codeword[4] = -44
+  codeword[3] = -44
   red_print("With error", codeword)
 
   ecc_message = decode(codeword)
