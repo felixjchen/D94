@@ -20,7 +20,6 @@ t = n-k
 evaluation_points = list(range(n))
 
 print(f"A [{n}, {k}, {d}] reed solomon code")
-print(f"Detects {t} errors")
 print(f"Detects and corrects {t//2} errors")
 
 def interpolate(xs, ys, degree):
@@ -70,20 +69,26 @@ def decode(codeword):
     return list(coefficients)
 
   # 2. 0 < # errors <= t//2 
-  # Brute force all <= t//2 sized errors
-  for errors in itertools.product(range(0,n), repeat=t//2):
+
+  # O(n^(t//2)) possible errors
+  l = list(itertools.product(range(n), repeat=t//2))
+  # Remove duplicates
+  l = [tuple(set(i)) for i in l]
+  l = list(set(l))
+  l = sorted(l, key= lambda x: len(x))
+
+  for errors in l:
     dp("guessing errors:", set(errors))
 
     xs = np.array(list(set(evaluation_points) - set(errors)))
     ys = codeword[xs]
     coefficients = interpolate(xs, ys, k-1)
+
     if verify(coefficients, xs, ys):
       print(f"Found errors {errors}")
       return coefficients
 
-  # 3. t//2 < # errors <= t 
-
-  pass
+  return "Cannot recover"
 
 if __name__ == "__main__":
   message = [1,0,3]
