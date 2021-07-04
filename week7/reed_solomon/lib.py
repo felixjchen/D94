@@ -1,8 +1,19 @@
+verbose = True
+
+
+def dp(*args):
+    args = (colored(0, 100, 250, i) for i in args)
+    if verbose:
+        print(*args)
+
+
 def colored(r, g, b, text):
     return "\033[38;2;{};{};{}m{}\033[38;2;255;255;255m".format(r, g, b, text)
 
+
 def red_print(*text):
-  print(*(colored(240,0,0, i) for i in text))
+    print(*(colored(240, 0, 0, i) for i in text))
+
 
 def pad_left(toPad, char, size):
     while len(toPad) < size:
