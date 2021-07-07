@@ -53,7 +53,6 @@ def decode(codeword):
 
         message, remainder = np.polydiv(coefficients_Q, coefficients_E)
         message = message % n
-
         if remainder % n == 0:
             return message % n
 
