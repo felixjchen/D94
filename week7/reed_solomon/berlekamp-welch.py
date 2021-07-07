@@ -1,8 +1,9 @@
+from lib import *
 import numpy as np
 import galois
-from lib import *
 
-n = 7
+
+n = 5
 k = 3
 d = n-k+1
 print(f"A [{n}, {k}, {d}] reed solomon code")
@@ -44,32 +45,29 @@ def decode(codeword):
         GFn = galois.GF(n)
         A = GFn(A % n)
         b = GFn(b % n)
-        dp(A, b)
 
-        try:
-            x = np.linalg.solve(A, b)
-            dp(x)
+        x = np.linalg.solve(A, b)
 
-            coefficients_E = np.insert(np.array(x[:s]), 0,  1)
-            coefficients_Q = np.array(x[s:])
-            message, remainder = np.polydiv(coefficients_Q, coefficients_E)
-            message, remainder = message % n, remainder[1] % n
-            if remainder == 0:
-                return message
+        coefficients_E = np.insert(np.array(x[:s]), 0,  1)
+        coefficients_Q = np.array(x[s:])
 
-        except np.linalg.LinAlgError:
-            pass
+        message, remainder = np.polydiv(coefficients_Q, coefficients_E)
+        message = message % n
+
+        if remainder % n == 0:
+            return message % n
+
+    return
 
 
 if __name__ == "__main__":
-    message = [3, 2, 1]
+    message = [1, 4, 4]
     print(f"Message  {message}")
 
     codeword = encode(message)
     print(f"Codeword {codeword}")
 
     codeword[1] = 5
-    # codeword[4] = 3
     red_print("With error", codeword)
 
     decoded_message = decode(codeword)
