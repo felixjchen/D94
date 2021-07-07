@@ -2,7 +2,7 @@
 
 ## Project Idea
 
-In distributed caching, how can we leverage error correcting codes for node failure tolerance.
+In distributed caching, how can we leverage error correcting codes for node failures.
 
 ## Motivation
 
