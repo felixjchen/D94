@@ -46,4 +46,4 @@ Material is subject to change, based on project relevance.
 
 ## Project
 
-Using Go or Rust, create a distributed cache (k/v store or nosql) that uses error correcting codes to rebuild failed nodes. Clients should use a custom TCP protocol.
+Using Go or Rust, create a distributed cache (k/v store or nosql) that uses error correcting codes to rebuild failed nodes. 
