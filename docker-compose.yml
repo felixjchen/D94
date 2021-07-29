@@ -1,10 +1,30 @@
+version: '3'
 services:
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.38.8
+  netdata:
+    image: netdata/netdata
+    container_name: netdata
+    hostname: example.com # set to fqdn of host
     ports:
-      - "8080:8080"            
+      - 19999:19999
+    restart: unless-stopped
+    cap_add:
+      - SYS_PTRACE
+    environment:
+      - DOCKER_USR=root
+    security_opt:
+      - apparmor:unconfined
     volumes:
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
+      - netdataconfig:/etc/netdata
+      - netdatalib:/var/lib/netdata
+      - netdatacache:/var/cache/netdata
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+
+volumes:
+  netdataconfig:
+  netdatalib:
+  netdatacache:
