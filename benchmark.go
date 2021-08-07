@@ -15,43 +15,29 @@ const ecc_prefix = "distributed_cache ecc client"
 const raft_prefix = "distributed_cache raft client"
 
 const records = 10000
-const keys = records
-const values = records
 
-func set_random_key_value() string {
-	return "key" + strconv.Itoa(rand.Intn(keys)) + " value" + strconv.Itoa(rand.Intn(values))
+func get_set_command(key_number int) string {
+	set_command := "key" + strconv.Itoa(key_number) + " value" + strconv.Itoa(rand.Intn(records))
+	return set_command
 }
 
-func get_random_key() string {
-	return "key" + strconv.Itoa(rand.Intn(keys))
+func get_get_command(key_number int) string {
+	return "key" + strconv.Itoa(key_number)
 }
 
-func set_key_values(prefix string, count int) [][]string {
+func get_commands(prefix string, count int, command_fn func(int) string) [][]string {
 	var res [][]string
-
 	for i := 0; i < count; i++ {
-		command := strings.Split(prefix+set_random_key_value(), " ")
-		res = append(res, command)
-	}
-	return res
-}
-
-func get_keys(prefix string, count int) [][]string {
-	var res [][]string
-
-	for i := 0; i < count; i++ {
-		command := strings.Split(prefix+get_random_key(), " ")
+		command := strings.Split(prefix+command_fn(i), " ")
 		res = append(res, command)
 	}
 	return res
 }
 
 func shuffle_workload(workload [][]string) {
-
-	rand.Shuffle(len(workload), func(i, j int) {
+	rand.Shuffle(len(workload), func(i int, j int) {
 		workload[i], workload[j] = workload[j], workload[i]
 	})
-
 }
 
 func get_workload_A(prefix string) [][]string {
@@ -59,8 +45,9 @@ func get_workload_A(prefix string) [][]string {
 	reads := 0.5 * records
 	writes := 0.5 * records
 
-	workload := set_key_values(prefix+" set ", int(writes))
-	workload = append(workload, get_keys(prefix+" get ", int(reads))...)
+	write_workload := get_commands(prefix+" set ", int(writes), get_set_command)
+	read_workload := get_commands(prefix+" get ", int(reads), get_get_command)
+	workload := append(write_workload, read_workload...)
 	shuffle_workload(workload)
 
 	return workload
@@ -71,15 +58,16 @@ func get_workload_B(prefix string) [][]string {
 	reads := 0.95 * records
 	writes := 0.05 * records
 
-	workload := set_key_values(prefix+" set ", int(writes))
-	workload = append(workload, get_keys(prefix+" get ", int(reads))...)
+	write_workload := get_commands(prefix, int(writes), get_set_command)
+	read_workload := get_commands(prefix, int(reads), get_get_command)
+	workload := append(write_workload, read_workload...)
 	shuffle_workload(workload)
 
 	return workload
 }
 
 func main() {
-	workloadA := get_workload_A(raft_prefix)
+	workloadA := get_workload_A(ecc_prefix)
 	fmt.Println("Generated workload")
 
 	start := time.Now()
