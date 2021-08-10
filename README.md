@@ -12,6 +12,15 @@ A Hamming(15,11) code uses ~27% redundent bits and will allow us to correct 1 bi
 
 Reed-Solomon codes will allow us to correct an arbitrary number of error bits, depending on how many parity bits we use. RS(n,k) can correct (n-k)/2 symbols ([CMU](https://www.cs.cmu.edu/~guyb/realworld/reedsolomon/reed_solomon_codes.html)).
 
+## Results
+Initial results show strong memory savings
+
+Raft Node RAM Usage (~7Mb for 10,000 entries)
+[https://github.com/felixjchen/D94/blob/main/benchmark_resource_usage/Screen Shot 2021-07-28 at 10.04.14 PM.png](https://github.com/felixjchen/D94/blob/main/benchmark_resource_usage/Screen%20Shot%202021-07-28%20at%2010.04.14%20PM.png)
+
+ECC Node RAM Usage (~2.8Mb for 10,000 entries)
+[https://github.com/felixjchen/D94/blob/main/benchmark_resource_usage/Screen Shot 2021-07-28 at 9.54.09 PM.png](https://github.com/felixjchen/D94/blob/main/benchmark_resource_usage/Screen%20Shot%202021-07-28%20at%209.54.09%20PM.png)
+
 ## Sources
 
 | Course                                                                                                                                                                    |
