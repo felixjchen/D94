@@ -31,10 +31,10 @@ func get_start_ecc_node_command() []string {
 }
 
 func get_disconnect_ecc_node_command() []string {
-	return strings.Split("docker network disconnect ecc-cache_default ecc-cache_ecc3_1", " ")
+	return strings.Split("docker network disconnect d94_default d94_ecc3_1", " ")
 }
 func get_connect_ecc_node_command() []string {
-	return strings.Split("docker network connect ecc-cache_default ecc-cache_ecc3_1", " ")
+	return strings.Split("docker network connect d94_default d94_ecc3_1", " ")
 }
 
 func get_set_command(key_number int) string {
@@ -162,8 +162,8 @@ func run_raft_test() {
 func run_ecc_test() {
 	workload := get_workload_C(ecc_prefix)
 	fmt.Println("Generated workload")
-	// insert(workload, 3333, get_disconnect_ecc_node_command())
-	// insert(workload, 6666, get_connect_ecc_node_command())
+	insert(workload, 3333, get_disconnect_ecc_node_command())
+	insert(workload, 6666, get_connect_ecc_node_command())
 
 	run_ecc(workload)
 	run_ecc(workload)
@@ -171,5 +171,5 @@ func run_ecc_test() {
 }
 
 func main() {
-	run_raft_test()
+	run_ecc_test()
 }
