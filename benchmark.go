@@ -26,9 +26,15 @@ func get_start_raft_node_command() []string {
 func get_stop_ecc_node_command() []string {
 	return strings.Split("docker kill d94_ecc3_1", " ")
 }
-
 func get_start_ecc_node_command() []string {
 	return strings.Split("docker run -d -p 3002:3002 -e DOCKER_HOSTNAME=host.docker.internal --name d94_ecc3_replacement_1 felixchen1998/distributed-cache-server:latest ecc server startOne 0.0.0.0:3002 recover", " ")
+}
+
+func get_disconnect_ecc_node_command() []string {
+	return strings.Split("docker network disconnect ecc-cache_default ecc-cache_ecc3_1", " ")
+}
+func get_connect_ecc_node_command() []string {
+	return strings.Split("docker network connect ecc-cache_default ecc-cache_ecc3_1", " ")
 }
 
 func get_set_command(key_number int) string {
@@ -87,6 +93,16 @@ func get_workload_B(prefix string) [][]string {
 	return workload
 }
 
+func get_workload_C(prefix string) [][]string {
+	// 100 Write
+	writes :=  records
+
+	workload := get_commands(prefix+" set ", int(writes), get_set_command)
+	shuffle_workload(workload)
+
+	return workload
+}
+
 func run_ecc(workload [][]string) {
 	cmd := exec.Command("docker", strings.Fields("compose -f docker-compose-ecc.yml up -d")...)
 	stdout, _ := cmd.Output()
@@ -125,28 +141,32 @@ func run_raft(workload [][]string) {
 	fmt.Printf("Benchmark took %s", elapsed)
 	fmt.Printf("Average transaction time %s seconds", elapsed.Seconds()/records)
 
-	// cmd = exec.Command("docker", strings.Fields("compose -f docker-compose-raft.yml down")...)
-	// stdout, _ = cmd.Output()
-	// fmt.Println(string(stdout))
-	// fmt.Println("Stopped raft cache")
+	cmd = exec.Command("docker", strings.Fields("compose -f docker-compose-raft.yml down")...)
+	stdout, _ = cmd.Output()
+	fmt.Println(string(stdout))
+	fmt.Println("Stopped raft cache")
 }
 
 func run_raft_test() {
-	workload := get_workload_B(raft_prefix)
+	workload := get_workload_C(raft_prefix)
 	fmt.Println("Generated workload")
-	insert(workload, 3333, get_stop_raft_node_command())
-	insert(workload, 6666, get_start_raft_node_command())
+	// insert(workload, 3333, get_stop_raft_node_command())
+	// insert(workload, 6666, get_start_raft_node_command())
 
+	run_raft(workload)
+	run_raft(workload)
 	run_raft(workload)
 }
 
 
 func run_ecc_test() {
-	workload := get_workload_A(ecc_prefix)
+	workload := get_workload_C(ecc_prefix)
 	fmt.Println("Generated workload")
-	insert(workload, 3333, get_stop_ecc_node_command())
-	insert(workload, 6666, get_start_ecc_node_command())
+	// insert(workload, 3333, get_disconnect_ecc_node_command())
+	// insert(workload, 6666, get_connect_ecc_node_command())
 
+	run_ecc(workload)
+	run_ecc(workload)
 	run_ecc(workload)
 }
 
