@@ -1,25 +1,30 @@
 # Error Correcting Codes for Distributed Caching
 
-## Project Idea
+🗞️ [Report](https://github.com/felixjchen/Distributed-Cache/blob/main/report/report.pdf)
 
-In distributed caching, how can we leverage error correcting codes for node failures.
+📊 [Benchmarks](https://github.com/felixjchen/Distributed-Cache/tree/main/report/benchmarks)
 
 ## Motivation
+Reduce redundancy in distributed caching by avoiding data replication and using error correction codes. 
+
+## Result
+
+Created two distributed key value stores, using two strategies:
+1. Raft replication
+2. Error Correcting Codes (Reed Solomon)
+
+### ECC cache uses 3.4 MiB
+![](https://user-images.githubusercontent.com/31393977/129127326-b744db92-29ca-4881-8aee-98c308f8b958.png)
+### Raft based cache uses 6.0 MiB
+![](https://user-images.githubusercontent.com/31393977/129127327-3d3aedab-76d6-4240-8225-d92d7a13cc78.png)
+
+## Idea
 
 Redis uses a master-slave architecture, which allows for all master nodes to fail, but it requires at least 50% redundant storage.
 
 A Hamming(15,11) code uses ~27% redundent bits and will allow us to correct 1 bit errors.
 
 Reed-Solomon codes will allow us to correct an arbitrary number of error bits, depending on how many parity bits we use. RS(n,k) can correct (n-k)/2 symbols ([CMU](https://www.cs.cmu.edu/~guyb/realworld/reedsolomon/reed_solomon_codes.html)).
-
-## Results
-Initial results show strong memory savings
-
-Raft Node RAM Usage (~7Mib for 5000 entries)
-[https://github.com/felixjchen/D94/blob/main/benchmark_resource_usage/Screen Shot 2021-07-28 at 10.04.14 PM.png](https://github.com/felixjchen/D94/blob/main/benchmark_resource_usage/Screen%20Shot%202021-07-28%20at%2010.04.14%20PM.png)
-
-ECC Node RAM Usage (~2.8Mib for 5000 entries)
-[https://github.com/felixjchen/D94/blob/main/benchmark_resource_usage/Screen Shot 2021-07-28 at 9.54.09 PM.png](https://github.com/felixjchen/D94/blob/main/benchmark_resource_usage/Screen%20Shot%202021-07-28%20at%209.54.09%20PM.png)
 
 ## Sources
 
