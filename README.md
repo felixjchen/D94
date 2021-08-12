@@ -4,6 +4,8 @@
 
 📊 [Benchmarks](https://github.com/felixjchen/Distributed-Cache/tree/main/report/benchmarks)
 
+🦀 [Rust Implementation](https://github.com/felixjchen/Distributed-Cache)
+
 ## Motivation
 Reduce redundancy in distributed caching by avoiding data replication and using error correction codes. 
 
