@@ -65,19 +65,3 @@ Material is subject to change, based on project relevance.
 
 Using Go or Rust, create a distributed cache (k/v store or nosql) that uses error correcting codes to rebuild failed nodes. 
 
-
-## 
-Introuce error
-networking benchmarks
-timing benchmarks
-
-## Introduction
-- intuition : save space while keeping perofrmance
-- approach : related works 
-- my apparoach: implementation
-- expirement : spec of expirements
-- results : analyze what we obtained
-- conclusion : does it match hypothesiss
-- future work : if we have time / money whats next
-
-- dont be shy 
